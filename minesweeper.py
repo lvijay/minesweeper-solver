@@ -1,22 +1,75 @@
 # -*- mode: python; -*-
 
 from collections import (
-    defaultdict,
+    Iterable,
 )
 from itertools import (
-    chain,
+    cycle,
 )
 import random
 from typing import (
+    Callable,
     Dict,
+    Generic,
     List,
+    Optional,
     Set,
     Tuple,
+    TypeVar,
+    Union,
 )
 import z3
 
 
 Point = Tuple[int, int]
+T = TypeVar("T")
+
+
+class Board(Generic[T]):
+    def __init__(
+            self,
+            m: int,
+            n: int,
+            supplier: Optional[Union[Callable[[], T], Iterable[T]]] = None
+    ):
+        print(f"supplier = {supplier}")
+        if isinstance(supplier, Iterable):
+            repeat = iter(cycle(supplier))
+            supplier = lambda: next(repeat)
+        elif not(callable(supplier)):
+            temp = [supplier]
+            supplier = lambda: temp[0]
+        #if supplier is None: supplier = lambda: None
+        self.__m = m
+        self.__n = n
+        self.__grid: Dict[Point, T] = {
+            (i, j): supplier()
+            for i in range(m)
+            for j in range(n)
+        }
+
+    @property
+    def m(self): return self.__m
+
+    @property
+    def n(self): return self.__n
+
+    def __setitem__(self, p: Point, val: T) -> None:
+        self[p]                 # throw KeyError if missing
+        self.__grid[p] = val
+
+    def __getitem__(self, p: Point) -> T:
+        return self.__grid[p]
+
+    def neighbor_xys(self, x: int, y: int) -> List[Point]:
+        nbrs: List[Point] = [
+            (rx, ry)
+            for xi in (-1, 0, +1)
+            for yj in (-1, 0, +1)
+            if (xi, yj) != (0, 0)
+            and (rx := x + xi, ry := y + yj) in self.__grid
+        ]
+        return nbrs
 
 
 class Minesweeper:
@@ -32,13 +85,12 @@ class Minesweeper:
             minecount: int = 0):
         self.__m = m
         self.__n = n
-        self.__grid: List[int] = [Minesweeper.UNNO for _ in range(m * n)]
-        self.__mines: Dict[Point, bool] = defaultdict(lambda: False)
+        self.__grid: Board[int] = Board(m, n, lambda: Minesweeper.UNNO)
+        self.__mines: Board[bool] = Board(m, n, lambda: False)
         positions: List[int] = random.sample(
-            range(self.m * self.n),
+            [(i, j) for i in range(m) for j in range(n)],
             k=minecount)
-        pos_xys: List[Point] = [self.xy(v) for v in positions]
-        for xy in pos_xys: self.__mines[xy] = True
+        for xy in positions: self.__mines[xy] = True
         self.__exploded = False
 
     @property
@@ -47,34 +99,14 @@ class Minesweeper:
     @property
     def n(self): return self.__n
 
-    def idx(self, x, y) -> int:
-        if (x < 0 or x >= self.m) or (y < 0 or y >= self.n):
-            raise IndexError(f"Invalid index ({x}, {y})")
-        return x * self.n + y
-
-    def xy(self, idx) -> Point:
-        x, y = idx // self.n, idx % self.n
-        if x >= self.m: raise IndexError(f"invalid index {idx}")
-        return x, y
-
     def __getitem__(self, v: Point) -> int:
-        return self.__grid[self.idx(*v)]
+        return self.__grid[v]
 
     def __setitem__(self, v: Point, val: int) -> None:
-        self.__grid[self.idx(*v)] = val
+        self.__grid[v] = val
 
     def neighbor_xys(self, x: int, y: int) -> List[Point]:
-        nbrs: List[Point] = [
-            (x + xi, y + yj)
-            for xi in (-1, 0, +1)
-            for yj in (-1, 0, +1)
-            if (xi, yj) != (0, 0)
-            and (rx := x + xi) >= 0
-            and rx < self.m
-            and (ry := y + yj) >= 0
-            and ry < self.n
-        ]
-        return nbrs
+        return self.__grid.neighbor_xys(x, y)
 
     def value_tos(self, v) -> str:
         if v == Minesweeper.EXPLODED: return "#"
