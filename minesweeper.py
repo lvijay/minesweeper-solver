@@ -1,8 +1,9 @@
 # -*- mode: python; -*-
 
 from collections import (
-    Iterable,
+    defaultdict,
 )
+from enum import Enum
 from itertools import (
     cycle,
 )
@@ -11,6 +12,7 @@ from typing import (
     Callable,
     Dict,
     Generic,
+    Iterable,
     List,
     Optional,
     Set,
@@ -32,14 +34,12 @@ class Board(Generic[T]):
             n: int,
             supplier: Optional[Union[Callable[[], T], Iterable[T]]] = None
     ):
-        print(f"supplier = {supplier}")
         if isinstance(supplier, Iterable):
             repeat = iter(cycle(supplier))
             supplier = lambda: next(repeat)
         elif not(callable(supplier)):
             temp = [supplier]
             supplier = lambda: temp[0]
-        #if supplier is None: supplier = lambda: None
         self.__m = m
         self.__n = n
         self.__grid: Dict[Point, T] = {
@@ -163,8 +163,8 @@ class MineSolver:
     def __init__(self, minesweeper: Minesweeper):
         self.minesweeper = minesweeper
         self.m, self.n = self.minesweeper.m, self.minesweeper.n
-        self.__known: Dict[Point, int] = dict()
-        self.__mines: Dict[Point, bool] = dict()
+        self.__known: Board[int] = Board(self.m, self.n, None)
+        self.__mines: Board[bool] = Board(self.m, self.n, False)
         self.__unknowns: Set[Point] = {
             (i, j) for i in range(self.m) for j in range(self.n)
         }
@@ -186,45 +186,67 @@ class MineSolver:
         self.mines[x, y] = True
         self.unknowns.remove((x, y))
 
-    def play(self, x=None, y=None):
-        if (x, y) == (None, None):
-            x, y = next(iter(set(self.unknowns)))
-        elif (x, y) in self.known:
+    def play(self, xy: Optional[Point]):
+        if xy is None:
+            xy = next(iter(set(self.unknowns)))
+        elif self.known[xy] is not None:
             return
+        else:
+            x, y = xy
         print(f"opening ({x}, {y})")
         position_vals: List[Tuple[Point, int]] = self.minesweeper.open(x, y)
         for (px, py), mc in position_vals:
-            if (px, py) in self.known:
+            if self.known[px, py] is not None:
                 raise ValueError("unexpected value change")
             self.add_known(px, py, mc)
         cells: Dict[Point, z3.Int] = {
             (ux, uy): z3.Int(f"c<{ux},{uy}>")
             for ux, uy in self.unknowns
         }
-        solver = z3.Solver()
-        solver.add([z3.Xor(c == 0, c == 1) for c in cells.values()])
+        known_neighbors = {
+            uxy: [
+                nxy
+                for nxy in s.minesweeper.neighbor_xys(*uxy)
+                if nxy not in s.unknowns
+            ]
+            for uxy in s.unknowns
+        }
+        icells = {pt: cl for cl, pt in cells.items()}
+        inverse_kn = defaultdict(lambda: [])
+        for cxy, oxy in known_neighbors.items():
+            for xy in oxy:
+                inverse_kn[xy].append(cells[cxy])
+        def_mines = self._initial_analysis(inverse_kn, icells)
 
-        print(known_neighbors)
+        return def_mines
 
-    def u_neighbors(self, x, y) -> List[Point]:  # unknown neighbors
-        return [
-            nxy
-            for nxy in self.minesweeper.neighbor_xys(x, y)
-            if nxy in self.unknowns
-        ]
+    def _initial_analysis(self, inverse_kn, icells):
+        inverse_kn = inverse_kn
+        definite_mines = {
+            cells[0]
+            for known_xy, cells in inverse_kn.items()
+            if len(cells) == 1
+        }
 
-    def k_neighbors(self, x, y) -> List[Point]:  # known neighbors
-        return [
-            nxy
-            for nxy in self.minesweeper.neighbor_xys(x, y)
-            if nxy not in self.unknowns
-        ]
+        print(f"definite_mines = {definite_mines}")
+
+        for cell in definite_mines:
+            keys = {kxy for kxy, cells in inverse_kn.items() if cell in cells}
+            for kxy in keys: inverse_kn[kxy].remove(cell)
+
+        empty_kxys = [kxy for kxy, cells in inverse_kn.items() if not cells]
+        for kxy in empty_kxys:
+            del inverse_kn[kxy]
+
+        print(f"empty_kxys = {empty_kxys}")
+
+        return definite_mines
 
     def __str__(self) -> str:
         pt = self.known
         mrows = str(self.minesweeper).split("\n")
         prows = [
-            "".join("%d" % pt.get((i, j), 9) for j in range(self.n))
+            "".join("%d" % (pt[i, j] or 9) for j in range(self.n))
             for i in range(self.m)
         ]
         return "\n".join(pr + "    " + mr for pr, mr in zip(prows, mrows))
@@ -245,21 +267,8 @@ if __name__ == "__main__":
     b = Minesweeper(9, 11, minecount=3)
     s = MineSolver(b)
     print(s)
-    s.play()
+    l1mines = s.play()
     print(s)
-    cells: Dict[Point, z3.Int] = {
-            (ux, uy): z3.Int(f"c<{ux},{uy}>")
-            for ux, uy in s.unknowns
-        }
-    solver = z3.Solver()
-    solver.add([z3.Xor(c == 0, c == 1) for c in cells.values()])
-    known_neighbors = {
-        uxy: [
-            nxy
-            for nxy in s.minesweeper.neighbor_xys(*uxy)
-            if nxy not in s.unknowns
-        ]
-        for uxy in s.unknowns
-    }
+    print(l1mines)
 
 # minesweeper.py ends here
