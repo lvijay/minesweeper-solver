@@ -25,6 +25,8 @@ import z3
 
 Point = Tuple[int, int]
 T = TypeVar("T")
+K = TypeVar("K")
+V = TypeVar("V")
 
 
 class Board(Generic[T]):
@@ -159,6 +161,16 @@ cell is a mine."""
         return sum(mines)
 
 
+class DoubleSidedDict(Generic[K, V]):
+    def __init__(self, d: Dict[K, V]):
+        self.__kv: Dict[K, V] = {k: v for k, v in d.items()}
+        self.__vk: Dict[V, K] = {v: k for k, v in d.items()}
+
+    def kv(self, k: K) -> V: return self.__kv[k]
+
+    def vk(self, v: V) -> K: return self.__vk[v]
+
+
 class MineSolver:
     def __init__(self, minesweeper: Minesweeper):
         self.minesweeper = minesweeper
@@ -199,10 +211,10 @@ class MineSolver:
             if self.known[px, py] is not None:
                 raise ValueError("unexpected value change")
             self.add_known(px, py, mc)
-        cells: Dict[Point, z3.Int] = {
+        cells: DoubleSidedDict[Point, z3.Int] = DoubleSidedDict({
             (ux, uy): z3.Int(f"c<{ux},{uy}>")
             for ux, uy in self.unknowns
-        }
+        })
         known_neighbors = {
             uxy: [
                 nxy
@@ -211,21 +223,27 @@ class MineSolver:
             ]
             for uxy in s.unknowns
         }
-        icells = {pt: cl for cl, pt in cells.items()}
         inverse_kn = defaultdict(lambda: [])
         for cxy, oxy in known_neighbors.items():
             for xy in oxy:
-                inverse_kn[xy].append(cells[cxy])
-        def_mines = self._initial_analysis(inverse_kn, icells)
+                inverse_kn[xy].append(cells.kv(cxy))
+        sure_mines = self._initial_analysis(inverse_kn)
+        print(f"sure_mines = {sure_mines}")
 
-        return def_mines
+        for mine_cell in sure_mines:
+            mxy: Point = cells.vk(mine_cell)
+            mx, my = mxy
+            self.add_mine(mx, my)
+            self.minesweeper.click((mx, my), Action.MARK)
 
-    def _initial_analysis(self, inverse_kn, icells):
+        return sure_mines
+
+    def _initial_analysis(self, inverse_kn):
         inverse_kn = inverse_kn
         definite_mines = {
             cells[0]
-            for known_xy, cells in inverse_kn.items()
-            if len(cells) == 1
+            for (kx, ky), cells in inverse_kn.items()
+            if len(cells) == self.minesweeper[kx, ky]
         }
 
         print(f"definite_mines = {definite_mines}")
