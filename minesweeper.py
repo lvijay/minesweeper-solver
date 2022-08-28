@@ -74,9 +74,17 @@ class Board(Generic[T]):
         return nbrs
 
 
+class Action(Enum):
+    OPEN = "OPEN"
+    MARK = "MARK"
+    UNMARK = "UNMARK"
+    CHORD = "CHORD"
+
+
 class Minesweeper:
-    MINE = 10                 # is a mine
-    UNNO = 11                 # unknown
+    MINE = 10                 # cell is a mine
+    UNOPENED = 11             # cell unopened
+    FLAG = 12                 # cell marked as flag
     EXPLODED = -1             # this board has exploded
 
     def __init__(
@@ -87,7 +95,7 @@ class Minesweeper:
             minecount: int = 0):
         self.__m = m
         self.__n = n
-        self.__grid: Board[int] = Board(m, n, lambda: Minesweeper.UNNO)
+        self.__grid: Board[int] = Board(m, n, lambda: Minesweeper.UNOPENED)
         self.__mines: Board[bool] = Board(m, n, lambda: False)
         positions: List[int] = random.sample(
             [(i, j) for i in range(m) for j in range(n)],
@@ -111,9 +119,10 @@ class Minesweeper:
         return self.__grid.neighbor_xys(x, y)
 
     def value_tos(self, v) -> str:
-        if v == Minesweeper.EXPLODED: return "#"
+        if v == Minesweeper.EXPLODED: return "%"
         if v is Minesweeper.MINE: return "*"
-        if v is Minesweeper.UNNO: return "?"
+        if v is Minesweeper.UNOPENED: return "?"
+        if v is Minesweeper.FLAG: return "+"
         return str(v)
 
     def __str__(self) -> str:
@@ -126,18 +135,28 @@ class Minesweeper:
         nl = "\n"
         return f"<{type(self).__qualname__} {str(self).replace(nl, ',')}>"
 
-    def open(self, x, y) -> List[Tuple[Point, int]]:
-        """Opens cell at (x, y).  No-op if cell already open.  Explodes if the
-cell is a mine."""
-        if self.__exploded: raise ValueError("Exploded")
-        if self.__mines[x, y] is True:
-            self._explode(x, y)
-        return self._open(x, y)
+    def click(self, xy: Point, action: Action):
+        x, y = xy
+        if action == Action.OPEN:
+            # Opens cell at (x, y).  No-op if cell already open or flagged.
+            # Explodes if the cell is a mine.
+            if self.__exploded: raise ValueError("Exploded")
+            if self.__mines[x, y] is True: raise self._explode(x, y)
+            if self[x, y] == Minesweeper.FLAG: return []
+            return self._open(x, y)
+        elif action == Action.CHORD:
+            raise NotImplementedError(f"CHORD not yet implemented")
+        elif action == Action.MARK:
+            self[x, y] = Minesweeper.FLAG
+        elif action == Action.UNMARK:
+            self[x, y] = Minesweeper.UNOPENED
+        else:
+            raise ValueError(f"Unknown action {action}")
 
     def _open(self, x, y) -> List[Tuple[Point, int]]:
         "Same as open but does not explode."
         if self.__mines[x, y] is True: return []
-        if self[x, y] != Minesweeper.UNNO: return []
+        if self[x, y] != Minesweeper.UNOPENED: return []
         self[x, y] = self._minecount(x, y)
         if self[x, y] > 0:
             return [((x, y), self[x, y])]
@@ -153,7 +172,7 @@ cell is a mine."""
                 is_mine_ij = self.__mines[i, j] is True
                 self[i, j] = True if is_mine_ij else self._minecount(i, j)
         self[x, y] = Minesweeper.EXPLODED
-        raise ValueError(f"Exploded at ({x}, {y})")
+        return ValueError(f"Exploded at ({x}, {y})")
 
     def _minecount(self, x, y) -> int:
         "mines in the region surrounding (x, y).  Does not count (x, y)."
@@ -206,7 +225,7 @@ class MineSolver:
         else:
             x, y = xy
         print(f"opening ({x}, {y})")
-        position_vals: List[Tuple[Point, int]] = self.minesweeper.open(x, y)
+        position_vals: List[Tuple[Point, int]] = self.minesweeper.click((x, y), Action.OPEN)
         for (px, py), mc in position_vals:
             if self.known[px, py] is not None:
                 raise ValueError("unexpected value change")
@@ -261,32 +280,23 @@ class MineSolver:
         return definite_mines
 
     def __str__(self) -> str:
-        pt = self.known
-        mrows = str(self.minesweeper).split("\n")
-        prows = [
-            "".join("%d" % (pt[i, j] or 9) for j in range(self.n))
-            for i in range(self.m)
-        ]
-        return "\n".join(pr + "    " + mr for pr, mr in zip(prows, mrows))
-
-
-def dwim():
-    c00, c10, c20 = z3.Ints('c00 c10 20')
-    so = z3.Solver()
-    so.add(c00 + c10 + c20 == 1)
-    so.add(c00 + c10 == 1)
-    so.add(c00 >= 0, c00 <= 1)
-    so.add(c10 >= 0, c10 <= 1)
-    so.add(c20 >= 0, c20 <= 1)
-    so.set("sat.pb.solver", "solver")
+        return str(self.minesweeper)
 
 
 if __name__ == "__main__":
-    b = Minesweeper(9, 11, minecount=3)
+    b = Minesweeper(9, 11, minecount=20)
     s = MineSolver(b)
+
+    print(b._Minesweeper__mines._Board__grid)
+    candidate: Point = next(
+        (i, j)
+        for i in range(b.m)
+        for j in range(b.n)
+        if b._minecount(i, j) <= 0
+        and b._Minesweeper__mines[i, j] is False
+    )
+    l1mines = s.play(candidate)
     print(s)
-    l1mines = s.play()
-    print(s)
-    print(l1mines)
+    print(f"s.unknowns = {s.unknowns}")
 
 # minesweeper.py ends here
