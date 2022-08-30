@@ -3,13 +3,16 @@
 from collections import (
     defaultdict,
 )
-from enum import Enum
+from enum import (
+    Enum,
+)
 from itertools import (
     cycle,
 )
 import random
 from typing import (
     Callable,
+    DefaultDict,
     Dict,
     Generic,
     Iterable,
@@ -31,33 +34,33 @@ V = TypeVar("V")
 
 class Board(Generic[T]):
     def __init__(
-            self,
-            m: int,
-            n: int,
-            supplier: Optional[Union[Callable[[], T], Iterable[T]]] = None
+        self,
+        m: int,
+        n: int,
+        supplier: Optional[Union[Callable[[], T], Iterable[T], T]] = None,
     ):
         if isinstance(supplier, Iterable):
             repeat = iter(cycle(supplier))
             supplier = lambda: next(repeat)
-        elif not(callable(supplier)):
-            temp = [supplier]
+        elif not (callable(supplier)):
+            temp: List[T] = [supplier]
             supplier = lambda: temp[0]
         self.__m = m
         self.__n = n
         self.__grid: Dict[Point, T] = {
-            (i, j): supplier()
-            for i in range(m)
-            for j in range(n)
+            (i, j): supplier() for i in range(m) for j in range(n)
         }
 
     @property
-    def m(self): return self.__m
+    def m(self):
+        return self.__m
 
     @property
-    def n(self): return self.__n
+    def n(self):
+        return self.__n
 
     def __setitem__(self, p: Point, val: T) -> None:
-        self[p]                 # throw KeyError if missing
+        self[p]  # throw KeyError if missing
         self.__grid[p] = val
 
     def __getitem__(self, p: Point) -> T:
@@ -73,6 +76,12 @@ class Board(Generic[T]):
         ]
         return nbrs
 
+    def __str__(self) -> str:
+        return "\n".join(
+            "".join("O#"[1 if self[i, j] else 0] for j in range(self.n))
+            for i in range(self.m)
+        )
+
 
 class Action(Enum):
     OPEN = "OPEN"
@@ -82,32 +91,37 @@ class Action(Enum):
 
 
 class Minesweeper:
-    MINE = 10                 # cell is a mine
-    UNOPENED = 11             # cell unopened
-    FLAG = 12                 # cell marked as flag
-    EXPLODED = -1             # this board has exploded
+    MINE = 10  # cell is a mine
+    UNOPENED = 11  # cell unopened
+    FLAG = 12  # cell marked as flag
+    EXPLODED = -1  # this board has exploded
 
     def __init__(
-            self,
-            m: int,
-            n: int,
-            *,
-            minecount: int = 0):
+        self, m: int, n: int, *, minecount: int = 0, mines: Iterable[bool] = []
+    ):
         self.__m = m
         self.__n = n
         self.__grid: Board[int] = Board(m, n, lambda: Minesweeper.UNOPENED)
-        self.__mines: Board[bool] = Board(m, n, lambda: False)
-        positions: List[int] = random.sample(
-            [(i, j) for i in range(m) for j in range(n)],
-            k=minecount)
-        for xy in positions: self.__mines[xy] = True
+
+        if isinstance(minecount, int) and minecount > 0:
+            positions: List[Point] = random.sample(
+                [(i, j) for i in range(m) for j in range(n)], k=minecount
+            )
+            the_mines: Board[bool] = Board(m, n, lambda: False)
+            for xy in positions:
+                the_mines[xy] = True
+        else:
+            the_mines: Board[bool] = Board(m, n, mines)
+        self.__mines: Board[bool] = the_mines
         self.__exploded = False
 
     @property
-    def m(self): return self.__m
+    def m(self):
+        return self.__m
 
     @property
-    def n(self): return self.__n
+    def n(self):
+        return self.__n
 
     def __getitem__(self, v: Point) -> int:
         return self.__grid[v]
@@ -119,10 +133,14 @@ class Minesweeper:
         return self.__grid.neighbor_xys(x, y)
 
     def value_tos(self, v) -> str:
-        if v == Minesweeper.EXPLODED: return "%"
-        if v is Minesweeper.MINE: return "*"
-        if v is Minesweeper.UNOPENED: return "?"
-        if v is Minesweeper.FLAG: return "+"
+        if v == Minesweeper.EXPLODED:
+            return "%"
+        if v is Minesweeper.MINE:
+            return "*"
+        if v is Minesweeper.UNOPENED:
+            return "?"
+        if v is Minesweeper.FLAG:
+            return "+"
         return str(v)
 
     def __str__(self) -> str:
@@ -140,9 +158,12 @@ class Minesweeper:
         if action == Action.OPEN:
             # Opens cell at (x, y).  No-op if cell already open or flagged.
             # Explodes if the cell is a mine.
-            if self.__exploded: raise ValueError("Exploded")
-            if self.__mines[x, y] is True: raise self._explode(x, y)
-            if self[x, y] == Minesweeper.FLAG: return []
+            if self.__exploded:
+                raise ValueError("Exploded")
+            if self.__mines[x, y] is True:
+                raise self._explode(x, y)
+            if self[x, y] == Minesweeper.FLAG:
+                return []
             return self._open(x, y)
         elif action == Action.CHORD:
             raise NotImplementedError(f"CHORD not yet implemented")
@@ -155,8 +176,10 @@ class Minesweeper:
 
     def _open(self, x, y) -> List[Tuple[Point, int]]:
         "Same as open but does not explode."
-        if self.__mines[x, y] is True: return []
-        if self[x, y] != Minesweeper.UNOPENED: return []
+        if self.__mines[x, y] is True:
+            return []
+        if self[x, y] != Minesweeper.UNOPENED:
+            return []
         self[x, y] = self._minecount(x, y)
         if self[x, y] > 0:
             return [((x, y), self[x, y])]
@@ -185,9 +208,17 @@ class DoubleSidedDict(Generic[K, V]):
         self.__kv: Dict[K, V] = {k: v for k, v in d.items()}
         self.__vk: Dict[V, K] = {v: k for k, v in d.items()}
 
-    def kv(self, k: K) -> V: return self.__kv[k]
+    def kv(self, k: K) -> V:
+        return self.__kv[k]
 
-    def vk(self, v: V) -> K: return self.__vk[v]
+    def vk(self, v: V) -> K:
+        return self.__vk[v]
+
+    def keys(self) -> List[K]:
+        return list(self.__kv.keys())
+
+    def values(self) -> List[V]:
+        return list(self.__vk.keys())
 
 
 class MineSolver:
@@ -201,39 +232,78 @@ class MineSolver:
         }
 
     @property
-    def known(self): return self.__known
+    def known(self):
+        return self.__known
 
     @property
-    def mines(self): return self.__mines
+    def mines(self):
+        return self.__mines
 
     @property
-    def unknowns(self): return self.__unknowns
+    def unknowns(self):
+        return self.__unknowns
 
     def add_known(self, x: int, y: int, val: int) -> None:
         self.known[x, y] = val
-        self.unknowns.remove((x, y))
+        try:
+            self.unknowns.remove((x, y))
+        except KeyError:
+            pass
 
     def add_mine(self, x, y) -> None:
         self.mines[x, y] = True
-        self.unknowns.remove((x, y))
+        try:
+            self.unknowns.remove((x, y))
+        except KeyError:
+            pass
 
     def play(self, xy: Optional[Point]):
         if xy is None:
             xy = next(iter(set(self.unknowns)))
+        elif self.mines[xy] is True:
+            return []
         elif self.known[xy] is not None:
             return
         else:
             x, y = xy
-        print(f"opening ({x}, {y})")
-        position_vals: List[Tuple[Point, int]] = self.minesweeper.click((x, y), Action.OPEN)
-        for (px, py), mc in position_vals:
+        print(f"opening ({xy})")
+        opened = self.minesweeper.click(xy, Action.OPEN)
+        for (px, py), mc in opened:
             if self.known[px, py] is not None:
                 raise ValueError("unexpected value change")
             self.add_known(px, py, mc)
-        cells: DoubleSidedDict[Point, z3.Int] = DoubleSidedDict({
-            (ux, uy): z3.Int(f"c<{ux},{uy}>")
-            for ux, uy in self.unknowns
-        })
+        cells: DoubleSidedDict[Point, z3.Int] = DoubleSidedDict(
+            {(ux, uy): z3.Int(f"c<{ux},{uy}>") for ux, uy in self.unknowns}
+        )
+        kcd: Dict[Point, List[z3.Int]] = self._known_cell_dict(cells)
+
+        solver: z3.Solver = z3.Solver()
+        for cell in cells.values():
+            solver.add(z3.Or(cell == 0, cell == 1))
+
+        for (ptx, pty), celz in kcd.items():
+            count: int = self.minesweeper[ptx, pty]
+            solver.add(sum(celz) == count)
+
+        yes_mines: List[z3.Int] = sorted(
+            self.sure_mines(cells, solver), key=str
+        )
+        not_mines: List[z3.Int] = sorted(
+            self.sure_non_mines(cells, solver), key=str
+        )
+
+        print(f"mines = {yes_mines}")
+        for mine in yes_mines:
+            pt: Point = cells.vk(mine)
+            self.add_mine(*pt)
+            self.minesweeper.click(pt, Action.MARK)
+
+        print(f"not_mines = {not_mines}")
+        return [cells.vk(cell) for cell in not_mines]
+
+    def _known_cell_dict(
+        self, cells: DoubleSidedDict[Point, z3.Int]
+    ) -> Dict[Point, List[z3.Int]]:
         known_neighbors = {
             uxy: [
                 nxy
@@ -242,61 +312,82 @@ class MineSolver:
             ]
             for uxy in s.unknowns
         }
-        inverse_kn = defaultdict(lambda: [])
+        inverse_kn: DefaultDict[Point, List[z3.Int]] = defaultdict(list)
         for cxy, oxy in known_neighbors.items():
             for xy in oxy:
                 inverse_kn[xy].append(cells.kv(cxy))
-        sure_mines = self._initial_analysis(inverse_kn)
-        print(f"sure_mines = {sure_mines}")
+        return inverse_kn
 
-        for mine_cell in sure_mines:
-            mxy: Point = cells.vk(mine_cell)
-            mx, my = mxy
-            self.add_mine(mx, my)
-            self.minesweeper.click((mx, my), Action.MARK)
+    def sure_non_mines(
+        self, cells: DoubleSidedDict[Point, z3.Int], solver: z3.Solver
+    ) -> List[z3.Int]:
+        return [
+            cell
+            for cell in cells.values()
+            if solver.check(cell == 1) == z3.unsat
+        ]
 
-        return sure_mines
-
-    def _initial_analysis(self, inverse_kn):
-        inverse_kn = inverse_kn
-        definite_mines = {
-            cells[0]
-            for (kx, ky), cells in inverse_kn.items()
-            if len(cells) == self.minesweeper[kx, ky]
-        }
-
-        print(f"definite_mines = {definite_mines}")
-
-        for cell in definite_mines:
-            keys = {kxy for kxy, cells in inverse_kn.items() if cell in cells}
-            for kxy in keys: inverse_kn[kxy].remove(cell)
-
-        empty_kxys = [kxy for kxy, cells in inverse_kn.items() if not cells]
-        for kxy in empty_kxys:
-            del inverse_kn[kxy]
-
-        print(f"empty_kxys = {empty_kxys}")
-
-        return definite_mines
+    def sure_mines(
+        self, cells: DoubleSidedDict[Point, z3.Int], solver: z3.Solver
+    ) -> List[z3.Int]:
+        return [
+            cell
+            for cell in cells.values()
+            if solver.check(cell == 0) == z3.unsat
+        ]
 
     def __str__(self) -> str:
-        return str(self.minesweeper)
+        l1 = str(self.minesweeper).split("\n")
+        l2 = str(self.minesweeper._Minesweeper__mines).split("\n")
+
+        return "---\n" + "\n".join(
+            l1r + "\t" + l2r for l1r, l2r in zip(l1, l2)
+        )
 
 
 if __name__ == "__main__":
-    b = Minesweeper(9, 11, minecount=20)
+    ms = """010000000
+            010000000
+            000000000
+            000001100
+            000000000
+            000000000
+            000000000
+            101010101
+            000000000
+            000000111
+            000000000""".replace(
+        " ", ""
+    ).replace(
+        "\n", ""
+    )
+    b = Minesweeper(
+        11,
+        9,
+        mines=([False, True][x == "1"] for x in ms),
+    )
+    print(b._Minesweeper__mines)
     s = MineSolver(b)
 
-    print(b._Minesweeper__mines._Board__grid)
     candidate: Point = next(
         (i, j)
         for i in range(b.m)
         for j in range(b.n)
-        if b._minecount(i, j) <= 0
-        and b._Minesweeper__mines[i, j] is False
+        if b._minecount(i, j) <= 0 and b._Minesweeper__mines[i, j] is False
     )
-    l1mines = s.play(candidate)
+
+    print(f"playing {candidate}")
+    non_mines = s.play(candidate)
+    not_mines = set(non_mines)
+    print(f"not_mines = {not_mines}")
+    while len(not_mines) > 0:
+        point: Point = not_mines.pop()
+        print(f"playing {point}")
+        next_set = s.play(point)
+        print(s)
+        for np in next_set:
+            not_mines.add(np)
+
     print(s)
-    print(f"s.unknowns = {s.unknowns}")
 
 # minesweeper.py ends here
