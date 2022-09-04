@@ -1,19 +1,14 @@
 # -*- mode: python; -*-
 
-from collections import (
-    defaultdict,
-)
 from enum import (
     Enum,
 )
 from itertools import (
-    chain,
     cycle,
 )
 import random
 from typing import (
     Callable,
-    DefaultDict,
     Dict,
     Generic,
     Iterable,
@@ -211,24 +206,6 @@ class Minesweeper:
         return sum(mines)
 
 
-class DoubleSidedDict(Generic[K, V]):
-    def __init__(self, d: Dict[K, V]):
-        self.__kv: Dict[K, V] = {k: v for k, v in d.items()}
-        self.__vk: Dict[V, K] = {v: k for k, v in d.items()}
-
-    def kv(self, k: K) -> V:
-        return self.__kv[k]
-
-    def vk(self, v: V) -> K:
-        return self.__vk[v]
-
-    def keys(self) -> List[K]:
-        return list(self.__kv.keys())
-
-    def values(self) -> List[V]:
-        return list(self.__vk.keys())
-
-
 class MineSolver:
     UNKNOWN = 10
     MINE = 11
@@ -304,18 +281,13 @@ class MineSolver:
         ]
 
         mines = [v for v, _ in mines_nonmines if v]
-        nonmines = [v for _, v in mines_nonmines if v]
+        nonmines = [
+            v
+            for _, v in mines_nonmines
+            if v and self.known[v] == MineSolver.UNKNOWN
+        ]
 
         return mines, nonmines
-
-    def sure_mines(
-        self, cells: DoubleSidedDict[Point, z3.Int], solver: z3.Solver
-    ) -> List[z3.Int]:
-        return [
-            cell
-            for cell in cells.values()
-            if solver.check(cell == 0) == z3.unsat
-        ]
 
     def __str__(self) -> str:
         def tos(v):
@@ -324,8 +296,6 @@ class MineSolver:
             if v == MineSolver.UNKNOWN:
                 return "@"
             return str(v)
-
-        counter = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
         l1 = str(self.minesweeper).split("\n")
         l2 = [
@@ -359,6 +329,7 @@ if __name__ == "__main__":
         9,
         mines=([False, True][x == "1"] for x in ms),
     )
+    b = Minesweeper(11, 9, minecount=41)
     s = MineSolver(b)
     print(s)
 
@@ -372,19 +343,32 @@ if __name__ == "__main__":
     print(f"candidate {candidate}")
     mines, non_mines = s.play(candidate)
     non_mines = [n for n in non_mines if s.known[n] == MineSolver.UNKNOWN]
-    print(f"not_mines = {non_mines}")
+    print(f"len(not_mines) = {len(non_mines)}")
     not_mines: Set[Point] = set(non_mines)
+    import time
+
+    start = time.time()
     with open("debug.txt", "w") as out:
         print(s, file=out)
-        while len(not_mines) > 0:
-            point: Point = not_mines.pop()
+        while True:
+            point: Point
+            if len(not_mines) > 0:
+                point = not_mines.pop()
+            else:
+                point = next(s.unknowns(), (-1, -1))
+            if point == (-1, -1):
+                break
             print(f"playing {point}", file=out)
             _, next_set = s.play(point)
             next_set = [
                 n for n in next_set if s.known[n] == MineSolver.UNKNOWN
             ]
             print(s, file=out)
+            print(f"len(next_set)  = {len(next_set)}")
             not_mines.update(next_set)
         print(s, file=out)
+    print(s)
+    end = time.time()
+    print(f"time taken = {end - start} ms")
 
 # minesweeper.py ends here
