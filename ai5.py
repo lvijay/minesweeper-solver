@@ -38,6 +38,6 @@ for i, color, x, y in zip(count(1), colors, loc_x, loc_y):
     b, g, r = color
     print(f'{i} color=({r}, {g}, {b}); dims={(x, y)},{(w, h)}')
     if i > 500: break
-    cv2.rectangle(image, (x, y), (x + w, y + h), color, 2)
+    cv2.rectangle(image, (x, y), (x + w, y + h), color, 1)
 
 cv2.imwrite('o_result.png', image)
