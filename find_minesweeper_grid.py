@@ -213,6 +213,7 @@ if __name__ == "__main__":
 
     filename = sys.argv[1]
     threshold = sys.argv[2] if len(sys.argv) >= 3 else '0.99'
+    other_images = sys.argv[3:]
 
     image = image_read(filename)
     finder = FindImage(float(threshold))
@@ -224,7 +225,7 @@ if __name__ == "__main__":
 
     board = finder.get_new_board(image)
     print(board)
-    images = [image_read(f'j_minebeg_0{i}.png') for i in '01234']
-    for ic, image in enumerate(images):
-        for i, j, cell in board.cells(image):
-            cv2.imwrite(f"o_{ic}_{i}-{j}.png", board.cell_image(image, i, j))
+    images = [image] + [image_read(imgfile) for imgfile in other_images]
+    for ic, img in enumerate(images):
+        for i, j, cell in board.cells(img):
+            cv2.imwrite(f"o_{ic}_{i+100}-{j+100}.png", board.cell_image(img, i, j))
