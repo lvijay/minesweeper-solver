@@ -54,7 +54,7 @@ class FindImage:
         "EXPLODED": image_read("find_exploded.png"),
         "FINISHED": image_read("find_finished.png"),
         "FLAG": image_read("find_flag.png"),
-        "UNOPENED.MIDDLE": image_read("find_ju.png"),
+        "UNOPENED.MIDDLE": image_read("find_j_uo.png"),
         "UNOPENED.NE": image_read("find_j_ne.png"),
         "UNOPENED.NW": image_read("find_j_nw.png"),
         "UNOPENED.SE": image_read("find_j_se.png"),
@@ -118,9 +118,10 @@ class FindImage:
         img_nw, nw_x, nw_y = self.get_unopened_corner(image, "NW")
         img_se, se_x, se_y = self.get_unopened_corner(image, "SE")
         img_sw, sw_x, sw_y = self.get_unopened_corner(image, "SW")
-        cell = finder.get("UNOPENED.MIDDLE")
+        cell = FindImage.get("UNOPENED.MIDDLE")
         width_extra, height_extra = 5, 5  # FIXME hardcoding
         height, width = cell.shape[:2]
+        width, height = min(width, height), min(width, height)
         nw_x, nw_y = nw_x[0] + width_extra, nw_y[0] + height_extra
         ne_x, ne_y = ne_x[0], ne_y[0]
         sw_x, sw_y = sw_x[0], sw_y[0]
@@ -151,8 +152,8 @@ class Board:
         self.__cellheight = cell_dims[1]
         self.__boardwidth = board_dims[0]
         self.__boardheight = board_dims[1]
-        self.__m = self.__boardwidth // self.__cellwidth
-        self.__n = self.__boardheight // self.__cellheight
+        self.__m = round(self.__boardwidth / self.__cellwidth)
+        self.__n = round(self.__boardheight / self.__cellheight)
 
     @property
     def m(self) -> int:
@@ -181,15 +182,19 @@ class Board:
     def cell_image(self, image, i, j) -> Image:
         if i >= self.m or j >= self.n:
             raise IndexError("Bounds exceeded")
+        slicex, slicey = self.cell_dims(i, j)
+        return image[slicex, slicey]
+
+    def cell_dims(self, i, j) -> Pair[int]:
         x, y = self.nwx, self.nwy
         w, h = self.__cellwidth, self.__cellheight
-        xi, yj = x + (i * h), y + (j * w)
-        xi1, yj1 = xi + h, yj + w
-        return image[yj:yj1, xi:xi1]
+        xi, yj = x + (i * w), y + (j * h)
+        xi1, yj1 = xi + w, yj + h
+        return slice(yj, yj1), slice(xi, xi1)
 
-    def cells(self, image) -> Iterator[Image]:
+    def cells(self, image) -> Iterator[Tuple[int, int, Image]]:
         yield from (
-            self.cell_image(image, i, j)
+            (i, j, self.cell_image(image, i, j))
             for i in range(self.m)
             for j in range(self.n)
         )
