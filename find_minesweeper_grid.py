@@ -19,7 +19,10 @@ Pair = Tuple[T, T]
 
 
 def image_read(filename, mode=cv2.IMREAD_ANYCOLOR) -> Image:
-    return cv2.imread(filename, mode)
+    image = cv2.imread(filename, mode)
+    if image is None:
+        raise FileNotFoundError(f'{filename} not found')
+    return image
 
 
 class Cell(Enum):
