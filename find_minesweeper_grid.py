@@ -202,7 +202,7 @@ class Board:
     def __str__(self) -> str:
         v = f"""Board<
 cells    : {self.m}x{self.n}
-dims     : {self.width}x{self.height}
+dims     : {self.nwx}x{self.nwy}+{self.width}x{self.height}
 cell_dims: {self.__cellwidth}x{self.__cellheight}
 >"""
         return v
