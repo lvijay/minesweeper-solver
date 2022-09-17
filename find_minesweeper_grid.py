@@ -200,11 +200,11 @@ class Board:
         )
 
     def __str__(self) -> str:
-        v = f"""
-            cells    : {self.m}x{self.n}
-            dims     : {self.width}x{self.height}
-            cell_dims: {self.__cellwidth}x{self.__cellheight}
-        """
+        v = f"""Board<
+cells    : {self.m}x{self.n}
+dims     : {self.width}x{self.height}
+cell_dims: {self.__cellwidth}x{self.__cellheight}
+>"""
         return v
 
 
@@ -223,16 +223,8 @@ if __name__ == "__main__":
         pass
 
     board = finder.get_new_board(image)
-
     print(board)
-
-    image = image_read(filename)
-    nw = board.cell_image(image, 0, 0)
-    ne = board.cell_image(image, 0, board.n - 1)
-    sw = board.cell_image(image, board.m - 1, 0)
-    se = board.cell_image(image, board.m - 1, board.n - 1)
-
-    cv2.imwrite("o_nw.png", nw)
-    cv2.imwrite("o_ne.png", ne)
-    cv2.imwrite("o_sw.png", sw)
-    cv2.imwrite("o_se.png", se)
+    images = [image_read(f'j_minebeg_0{i}.png') for i in '01234']
+    for ic, image in enumerate(images):
+        for i, j, cell in board.cells(image):
+            cv2.imwrite(f"o_{ic}_{i}-{j}.png", board.cell_image(image, i, j))
