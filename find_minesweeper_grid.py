@@ -146,14 +146,14 @@ class SubImageNotFoundError(Exception):
 
 
 class Board:
-    def __init__(self, nwxy, board_dims, cell_dims=(48, 48)):
-        self.__nwx, self.__nwy = nwxy
+    def __init__(self, nwrowcol, board_dims, cell_dims):
+        self.__nw_row, self.__nw_col = nwrowcol
         self.__cellwidth = cell_dims[0]
         self.__cellheight = cell_dims[1]
         self.__boardwidth = board_dims[0]
         self.__boardheight = board_dims[1]
-        self.__m = round(self.__boardwidth / self.__cellwidth)
-        self.__n = round(self.__boardheight / self.__cellheight)
+        self.__rows = round(self.__boardwidth / self.__cellwidth)
+        self.__cols = round(self.__boardheight / self.__cellheight)
 
     @property
     def m(self) -> int:
@@ -164,12 +164,10 @@ class Board:
         return self.__n
 
     @property
-    def nwx(self) -> int:
-        return self.__nwx
+    def nw_row(self) -> int: return self.__nw_row
 
     @property
-    def nwy(self) -> int:
-        return self.__nwy
+    def nw_col(self) -> int: return self.__nw_col
 
     @property
     def width(self) -> int:
@@ -179,31 +177,37 @@ class Board:
     def height(self) -> int:
         return self.__boardheight
 
-    def cell_image(self, image, i, j) -> Image:
-        if i >= self.m or j >= self.n:
-            raise IndexError("Bounds exceeded")
-        slicex, slicey = self.cell_dims(i, j)
-        return image[slicex, slicey]
+    @property
+    def cellwidth(self) -> int: return self.__cellwidth
 
-    def cell_dims(self, i, j) -> Pair[int]:
-        x, y = self.nwx, self.nwy
-        w, h = self.__cellwidth, self.__cellheight
-        xi, yj = x + (i * w), y + (j * h)
-        xi1, yj1 = xi + w, yj + h
-        return slice(yj, yj1), slice(xi, xi1)
+    @property
+    def cellheight(self) -> int: return self.__cellheight
+
+    def cell_dims(self, row, col) -> Pair[int]:
+        x, y = self.nw_row, self.nw_col
+        h, w = self.cellheight, self.cellwidth
+        xstart, ystart = x + col * w, y + row * h
+        xend, yend = xstart + w, ystart + h
+        return slice(ystart, yend), slice(xstart, xend)
+
+    def cell_image(self, image, row, col) -> Image:
+        if row >= self.rows or col >= self.cols:
+            raise IndexError("Bounds exceeded")
+        slice_y, slice_x = self.cell_dims(row, col)
+        return image[slice_y, slice_x]
 
     def cells(self, image) -> Iterator[Tuple[int, int, Image]]:
         yield from (
-            (i, j, self.cell_image(image, i, j))
-            for i in range(self.m)
-            for j in range(self.n)
+            (rowi, colj, self.cell_image(image, rowi, colj))
+            for rowi in range(self.rows)
+            for colj in range(self.cols)
         )
 
     def __str__(self) -> str:
         v = f"""Board<
-cells    : {self.m}x{self.n}
-dims     : {self.nwx}x{self.nwy}+{self.width}x{self.height}
-cell_dims: {self.__cellwidth}x{self.__cellheight}
+cells    : {self.rows}x{self.cols}
+dims     : {self.nw_row}x{self.nw_col}+{self.width}x{self.height}
+cell_dims: {self.cellwidth}x{self.cellheight}
 >"""
         return v
 
