@@ -51,26 +51,14 @@ class FindImage:
         "7": image_read("find_j_7.png"),
         "8": image_read("find_j_8.png"),
         "MINE": image_read("find_mine.png"),
-        "EXPLODED": image_read("find_exploded.png"),
-        "FINISHED": image_read("find_finished.png"),
+        "EXPLODED": image_read("find_j_exploded.png"),
+        "FINISHED": image_read("find_j_finished.png"),
         "FLAG": image_read("find_flag.png"),
         "UNOPENED.MIDDLE": image_read("find_j_uo.png"),
         "UNOPENED.NE": image_read("find_j_ne.png"),
         "UNOPENED.NW": image_read("find_j_nw.png"),
         "UNOPENED.SE": image_read("find_j_se.png"),
         "UNOPENED.SW": image_read("find_j_sw.png"),
-    }
-
-    CELL_VALUES = {
-        "C0": [198, 198, 198],
-        "C1": [245, 0, 1],
-        "C2": [34, 126, 56],
-        "C3": [0, 0, 255],
-        "C4": [122, 0, 1],
-        "C5": [12, 20, 117],
-        "C6": [127, 126, 56],
-        "C7": [0, 0, 0],
-        "C8": [128, 128, 128],
     }
 
     @staticmethod
@@ -108,10 +96,14 @@ class FindImage:
         finished = FindImage.get("FINISHED")
         try:
             self.get_matches(image, exploded, "exploded") # a mine has exploded
-            self.get_matches(image, finished, "finished") # the game has ended
             return True
         except SubImageNotFoundError:
-            return False
+            try:
+                self.get_matches(image, finished, "finished") # the game has ended
+                return True
+            except SubImageNotFoundError:
+                return False
+        return False
 
     def get_new_board(self, image):
         img_ne, ne_x, ne_y = self.get_unopened_corner(image, "NE")
