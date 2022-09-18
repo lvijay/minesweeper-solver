@@ -2,24 +2,23 @@
  * Play Minesweeper.
  */
 
-import java.awt.Robot;
-
+import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toUnmodifiableMap;
 
 import java.awt.Dimension;
 import java.awt.MouseInfo;
 import java.awt.Rectangle;
+import java.awt.Robot;
 import java.awt.Toolkit;
-import java.io.FileOutputStream;
+import java.awt.event.InputEvent;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
-import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 
 import javax.imageio.ImageIO;
@@ -27,18 +26,16 @@ import javax.imageio.ImageIO;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import com.sun.net.httpserver.HttpServer;
 import com.sun.net.httpserver.spi.HttpServerProvider;
 
 public class MinesweeperPlayer {
-    static abstract class RequestHandler implements HttpHandler {
-        private final Robot robot;
+    private final Robot robot;
 
-        public RequestHandler(Robot robot) {
-            Objects.requireNonNull(robot, "robot must not be null");
-            this.robot = robot;
-        }
+    public MinesweeperPlayer(Robot robot) {
+        this.robot = robot;
+    }
 
+    abstract class RequestHandler implements HttpHandler {
         @Override
         public final void handle(HttpExchange exchange) throws IOException {
             Headers headers = exchange.getResponseHeaders();
@@ -56,8 +53,7 @@ public class MinesweeperPlayer {
 
                 System.out.println("URI = " + requestURI);
 
-                var response = handle(qparams, headers);
-                byte[] respData = response.getBytes(UTF_8);
+                byte[] respData = handle(qparams, headers);
                 exchange.sendResponseHeaders(getResponseCode(headers), respData.length);
                 exchange.getResponseBody()
                         .write(respData);
@@ -76,76 +72,84 @@ public class MinesweeperPlayer {
             return Integer.parseInt(vals.get(0));
         }
 
-        protected Robot robot() { return robot; }
-
-        protected abstract String handle(Map<String, String> qparams, Headers responseHeaders)
+        protected abstract byte[] handle(Map<String, String> qparams, Headers responseHeaders)
                 throws IOException;
     }
 
-    static final class MouseMoveHandler extends RequestHandler {
-        public MouseMoveHandler(Robot robot) { super(robot); }
-
+    private final class MouseMoveHandler extends RequestHandler {
         @Override
-        protected String handle(Map<String, String> qparams, Headers responseHeaders) {
+        protected byte[] handle(Map<String, String> qparams, Headers responseHeaders) {
             int x = Integer.parseInt(qparams.getOrDefault("x", "-1"));
             int y = Integer.parseInt(qparams.getOrDefault("y", "-1"));
 
-            robot().mouseMove(x, y);
-            robot().delay(100);
+            robot.mouseMove(x, y);
             var location = MouseInfo.getPointerInfo().getLocation();
 
             responseHeaders.add("Content-Type", "application/json");
 
             String response = String.format("""
-            {
-                "x": %d,
-                "y": %d
-            }
+            { "x": %d, "y": %d }
             """, location.x, location.y);
 
             System.out.println("mouse location = " + response);
 
-            return response;
+            return response.getBytes(US_ASCII);
         }
     }
 
-    static final class ScreenshotHandler extends RequestHandler {
+    private final class MouseClickHandler extends RequestHandler {
+        @Override
+        protected byte[] handle(Map<String, String> qparams, Headers responseHeaders) {
+            robot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
+            robot.delay(20);
+            robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
+            var location = MouseInfo.getPointerInfo().getLocation();
+
+            responseHeaders.add("Content-Type", "application/json");
+
+            String response = String.format("""
+            { "x": %d, "y": %d }
+            """, location.x, location.y);
+
+            System.out.println("mouse location = " + response);
+
+            return response.getBytes(US_ASCII);
+        }
+    }
+
+    private final class ScreenshotHandler extends RequestHandler {
         private final Dimension screenDims;
 
-        public ScreenshotHandler(Robot robot) {
-            super(robot);
+        public ScreenshotHandler() {
             screenDims = Toolkit.getDefaultToolkit().getScreenSize();
         }
 
         @Override
-        protected String handle(Map<String, String> qparams, Headers responseHeaders)
+        protected byte[] handle(Map<String, String> qparams, Headers headers)
                 throws IOException {
-            var img = robot().createScreenCapture(new Rectangle(screenDims));
-            var tempFilePath = Files.createTempFile("minesweeper_screencap", ".png");
-            var tempFile = tempFilePath.toFile();
+            var img = robot.createScreenCapture(new Rectangle(screenDims));
+            int filesize = img.getWidth() * img.getHeight() * 3;
+            var out = new ByteArrayOutputStream(filesize);
 
-            tempFile.deleteOnExit();
+            headers.add("Content-Type", "image/png");
+            ImageIO.write(img, "PNG", out);
 
-            try (var out = new FileOutputStream(tempFile)) {
-                ImageIO.write(img, "PNG", out);
-            }
-
-            // could actually just return the file contents
-            return tempFile.getAbsolutePath();
+            return out.toByteArray();
         }
     }
 
     public static void main(String[] args) throws Exception {
         var robot = new Robot();
-
         var serverProvider = HttpServerProvider.provider();
         int port = 8888;
-
-        HttpServer server = serverProvider.createHttpServer(
+        var server = serverProvider.createHttpServer(
                 new InetSocketAddress("localhost", port), 10);
 
-        server.createContext("/screencap", new ScreenshotHandler(robot));
-        server.createContext("/mousemove", new MouseMoveHandler(robot));
+        var player = new MinesweeperPlayer(robot);
+
+        server.createContext("/screencap", player.new ScreenshotHandler());
+        server.createContext("/mousemove", player.new MouseMoveHandler());
+        server.createContext("/mouseclick", player.new MouseClickHandler());
         server.createContext("/stop", exc -> {
             exc.sendResponseHeaders(200, 4);
             exc.getResponseBody().write("Bye\n".getBytes(UTF_8));
