@@ -152,16 +152,16 @@ class Board:
         self.__cellheight = cell_dims[1]
         self.__boardwidth = board_dims[0]
         self.__boardheight = board_dims[1]
-        self.__rows = round(self.__boardwidth / self.__cellwidth)
-        self.__cols = round(self.__boardheight / self.__cellheight)
+        self.__rows = round(self.__boardheight / self.__cellheight)
+        self.__cols = round(self.__boardwidth / self.__cellwidth)
 
     @property
-    def m(self) -> int:
-        return self.__m
+    def rows(self) -> int:
+        return self.__rows
 
     @property
-    def n(self) -> int:
-        return self.__n
+    def cols(self) -> int:
+        return self.__cols
 
     @property
     def nw_row(self) -> int: return self.__nw_row
@@ -232,4 +232,9 @@ if __name__ == "__main__":
     images = [image] + [image_read(imgfile) for imgfile in other_images]
     for ic, img in enumerate(images):
         for i, j, cell in board.cells(img):
-            cv2.imwrite(f"o_{ic}_{i+100}-{j+100}.png", board.cell_image(img, i, j))
+            try:
+                cv2.imwrite(f"o_{ic}_{i:02d}-{j:02d}.png", cell)
+            except Exception as e:
+                print(f"error at ic,i,j={ic},{i},{j}")
+                print(e)
+                break
