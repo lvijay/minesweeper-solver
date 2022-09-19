@@ -38,6 +38,12 @@ class Cell(Enum):
     UNOPENED = "UNOPENED"
     FLAG = "FLAG"
 
+    @staticmethod
+    def to_cell(val: int):
+        if val == 0: return Cell.UNOPENED
+        if val >= 1 and val <= 8: return Cell.__members__[f"C{val}"]
+        return Cell.C0
+
 
 class FindImage:
     IMAGES = {
@@ -110,10 +116,8 @@ class FindImage:
         img_nw, nw_x, nw_y = self.get_unopened_corner(image, "NW")
         img_se, se_x, se_y = self.get_unopened_corner(image, "SE")
         img_sw, sw_x, sw_y = self.get_unopened_corner(image, "SW")
-        cell = FindImage.get("UNOPENED.MIDDLE")
         width_extra, height_extra = 5, 5  # FIXME hardcoding
-        height, width = cell.shape[:2]
-        width, height = min(width, height), min(width, height)
+        width, height = 24, 24  # FIXME hardcoding
         nw_x, nw_y = nw_x[0] + width_extra, nw_y[0] + height_extra
         ne_x, ne_y = ne_x[0], ne_y[0]
         sw_x, sw_y = sw_x[0], sw_y[0]
@@ -128,8 +132,24 @@ class FindImage:
         cv2.imwrite("o_out.png", image)
         return Board((nw_x, nw_y), (board_width, board_height), (width, height))
 
-    def identify_cell(cell: Image) -> Cell:
-        pass
+    def identify_cell(self, cell: Image) -> Cell:
+        domain = list(range(9))
+        ideals = [FindImage.get(str(i)) for i in domain]
+        ideals[0] = FindImage.get("UNOPENED.MIDDLE")
+        def matches(cell, ideals, idx):
+            try:
+                return self.get_matches(cell, ideals[idx], f'{idx}')
+            except Exception:
+                return False
+        match_vals = [
+            i
+            for i in domain
+            if matches(cell, ideals, i) is not False
+        ]
+        if match_vals:
+            val = match_vals[-1] # preferentially take the last match
+            return Cell.to_cell(val)
+        return Cell.C0
 
 
 class SubImageNotFoundError(Exception):
@@ -230,3 +250,9 @@ if __name__ == "__main__":
                 print(f"error at ic,i,j={ic},{i},{j}")
                 print(e)
                 break
+
+    for ic, img in enumerate(images):
+        print("\n".join(
+            f"{i,j}_{finder.identify_cell(cell)}"
+            for i, j, cell in board.cells(img)
+        ))
