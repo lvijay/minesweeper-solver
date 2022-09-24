@@ -250,7 +250,9 @@ if __name__ == "__main__":
                 break
 
     for ic, img in enumerate(images):
-        print("\n".join(
-            f"{i,j}_{finder.identify_cell(cell)}"
+        print(f"{ic:02d}: ", end='')
+        print("\n    ".join(
+            f"{i:02d},{j:02d}_{finder.identify_cell(cell)}"
             for i, j, cell in board.cells(img)
         ))
+        print()
