@@ -34,14 +34,17 @@ class Cell(Enum):
     C6 = "6"
     C7 = "7"
     C8 = "8"
-    UNOPENED = "UNOPENED"
-    FLAG = "FLAG"
-    MINE = "MINE"
-    UNKNOWN = "UNKNOWN"
+    UO = "U_UNOPENED"
+    FG = "F_FLAG"
+    MI = "*_MINE"
+    UK = "?_UNKNOWN"
+
+    def __str__(self) -> str: return self.value[0]
+    def __repr__(self) -> str: return self.str()
 
 
 class FindImage:
-    def __init__(self, threshold:float=0.99):
+    def __init__(self):
         image_names_files = [
             ('0', 'find_j_0.png'), ('1', 'find_j_1.png'),
             ('2', 'find_j_2.png'), ('3', 'find_j_3.png'),
@@ -60,23 +63,20 @@ class FindImage:
         image_cells = dict(
             (('0', Cell.C0), ('1', Cell.C1), ('2', Cell.C2), ('3', Cell.C3),
              ('4', Cell.C4), ('5', Cell.C5), ('6', Cell.C6), ('7', Cell.C7),
-             ('8', Cell.C8), ('UNOPENED', Cell.UNOPENED),))
+             ('8', Cell.C8), ('UNOPENED', Cell.UO),))
 
         self.__images: Dict[str, Image] = images
         self.__image_cells: Dict[str, Cell] = image_cells
-        self.__threshold: float = threshold
 
     def __getitem__(self, name: str) -> Image:
         return self.__images[name]
 
-    @property
-    def threshold(self) -> float:
-        return self.__threshold
-
-    def get_matches(self, image, template, name) -> Pair[np.ndarray]:
+    def get_matches(
+            self, image: Image, template: Image, name: str, threshold: float
+    ) -> Pair[np.ndarray]:
         h, w = template.shape[:2]
         match = cv2.matchTemplate(image, template, cv2.TM_CCOEFF_NORMED)
-        ys, xs = np.asarray(match >= self.threshold).nonzero()
+        ys, xs = np.asarray(match >= threshold).nonzero()
         if len(ys) == 0 or len(xs) == 0:
             raise SubImageNotFoundError(name)
         return xs, ys
@@ -85,18 +85,20 @@ class FindImage:
             Image, np.ndarray, np.ndarray
     ]:
         template = self[f"CORNER.{corner}"]
-        return template, *self.get_matches(image, template, corner)
+        return template, *self.get_matches(image, template, corner, 0.95)
 
     def is_game_ended(self, image) -> bool:
         "Returns True if the game is over; False otherwise."
         exploded = self["EXPLODED"]
         finished = self["FINISHED"]
         try:
-            self.get_matches(image, exploded, "exploded") # a mine has exploded
+            # a mine has exploded
+            self.get_matches(image, exploded, "exploded", 0.95)
             return True
         except SubImageNotFoundError:
             try:
-                self.get_matches(image, finished, "finished") # the game has ended
+                # the game has ended
+                self.get_matches(image, finished, "finished", 0.9)
                 return True
             except SubImageNotFoundError:
                 return False
@@ -107,15 +109,14 @@ class FindImage:
         _, nw_x, nw_y = self.get_unopened_corner(image, "NW")
         _, se_x, se_y = self.get_unopened_corner(image, "SE")
         _, sw_x, sw_y = self.get_unopened_corner(image, "SW")
-        width, height = 24, 24  # FIXME hardcoding
+        width, hite = 24, 24  # FIXME hardcoding
         nw_x, nw_y = nw_x[0] + 5, nw_y[0] + 5
         ne_x, ne_y = ne_x[0], ne_y[0]
         sw_x, sw_y = sw_x[0], sw_y[0]
         se_x, se_y = se_x[0], se_y[0]
         board_width = ne_x - nw_x + width
-        board_height = se_y - nw_y + height
-        colors = iter(((255, 0, 255), (0, 255, 0), (0, 0, 255), (255, 255, 0)))
-        return Board((nw_x, nw_y), (board_width, board_height), (width, height))
+        board_height = se_y - nw_y + hite
+        return Board((nw_x, nw_y), (board_width, board_height), (width, hite))
 
     def identify_cell(self, cell: Image) -> Cell:
         saved_cells = {
@@ -123,9 +124,10 @@ class FindImage:
             for name, img in self.__images.items()
             if "CORNER" not in name
         }
+
         def matches(cell, saved_cell, name):
             try:
-                return self.get_matches(cell, saved_cell, name)
+                return self.get_matches(cell, saved_cell, name, 0.95)
             except SubImageNotFoundError:
                 return False
         match_vals = [
@@ -133,9 +135,8 @@ class FindImage:
             for name, img in saved_cells.items()
             if matches(cell, img, name) is not False
         ]
-        print("match_vals =", match_vals)
         if match_vals:
-            name = match_vals[-1] # preferentially take the last match
+            name = match_vals[-1]  # preferentially take the last match
             return self.__image_cells[name]
         return Cell.UNKNOWN
 
@@ -183,7 +184,7 @@ class Board:
     @property
     def cellheight(self) -> int: return self.__cellheight
 
-    def cell_dims(self, row, col) -> Pair[int]:
+    def cell_dims(self, row, col) -> Pair[slice]:
         x, y = self.nw_row, self.nw_col
         h, w = self.cellheight, self.cellwidth
         xstart, ystart = x + col * w, y + row * h
@@ -216,11 +217,10 @@ if __name__ == "__main__":
     import sys
 
     filename = sys.argv[1]
-    threshold = sys.argv[2] if len(sys.argv) >= 3 else '0.99'
-    other_images = sys.argv[3:]
+    other_images = sys.argv[2:]
 
     image = image_read(filename)
-    finder = FindImage(float(threshold))
+    finder = FindImage()
 
     if finder.is_game_ended(image):
         print("game over")
@@ -238,10 +238,10 @@ if __name__ == "__main__":
                 print(e)
                 break
 
+    array = [[None for j in range(board.cols)] for i in range(board.rows)]
     for ic, img in enumerate(images):
-        print(f"{ic:02d}: ", end='')
-        print("\n    ".join(
-            f"{i:02d},{j:02d}_{finder.identify_cell(cell)}"
-            for i, j, cell in board.cells(img)
-        ))
+        for i, j, cell in board.cells(img):
+            array[i][j] = finder.identify_cell(cell)
+        print(f"image {ic}:")
+        for row in array: print("".join(map(str, row)))
         print()
