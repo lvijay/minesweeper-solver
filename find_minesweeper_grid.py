@@ -34,10 +34,10 @@ class Cell(Enum):
     C6 = "6"
     C7 = "7"
     C8 = "8"
-    UO = "U_UNOPENED"
-    FG = "F_FLAG"
-    MI = "*_MINE"
-    UK = "?_UNKNOWN"
+    UNOPENED = "U_UNOPENED"
+    FLAG = "F_FLAG"
+    MINE = "*_MINE"
+    UNKNOWN = "?_UNKNOWN"
 
     def __str__(self) -> str: return self.value[0]
     def __repr__(self) -> str: return self.str()
@@ -46,24 +46,25 @@ class Cell(Enum):
 class FindImage:
     def __init__(self):
         image_names_files = [
-            ('0', 'find_j_0.png'), ('1', 'find_j_1.png'),
-            ('2', 'find_j_2.png'), ('3', 'find_j_3.png'),
-            ('4', 'find_j_4.png'), ('5', 'find_j_5.png'),
-            ('6', 'find_j_6.png'), ('7', 'find_j_7.png'),
-            ('8', 'find_j_8.png'), ('EXPLODED', 'find_j_exploded.png'),
-            ('FINISHED', 'find_j_finished.png'),
-            ('UNOPENED', 'find_j_uo.png'),
-            ('CORNER.NE', 'find_j_ne.png'), ('CORNER.NW', 'find_j_nw.png'),
-            ('CORNER.SE', 'find_j_se.png'), ('CORNER.SW', 'find_j_sw.png')
+            ("0", "find_j_0.png"), ("1", "find_j_1.png"),
+            ("2", "find_j_2.png"), ("3", "find_j_3.png"),
+            ("4", "find_j_4.png"), ("5", "find_j_5.png"),
+            ("6", "find_j_6.png"), ("7", "find_j_7.png"),
+            ("8", "find_j_8.png"), ("EXPLODED", "find_j_exploded.png"),
+            ("FINISHED", "find_j_finished.png"), ("FLAG", "find_j_flag.png"),
+            ("UNOPENED", "find_j_uo.png"),
+            ("CORNER.NE", "find_j_ne.png"), ("CORNER.NW", "find_j_nw.png"),
+            ("CORNER.SE", "find_j_se.png"), ("CORNER.SW", "find_j_sw.png")
         ]
         images: Dict[str, Image] = {
             name: image_read(filename)
             for name, filename in image_names_files
         }
         image_cells = dict(
-            (('0', Cell.C0), ('1', Cell.C1), ('2', Cell.C2), ('3', Cell.C3),
-             ('4', Cell.C4), ('5', Cell.C5), ('6', Cell.C6), ('7', Cell.C7),
-             ('8', Cell.C8), ('UNOPENED', Cell.UO),))
+            (("0", Cell.C0), ("1", Cell.C1), ("2", Cell.C2), ("3", Cell.C3),
+             ("4", Cell.C4), ("5", Cell.C5), ("6", Cell.C6), ("7", Cell.C7),
+             ("8", Cell.C8), ("UNOPENED", Cell.UNOPENED), ("FLAG", Cell.FLAG),
+             ))
 
         self.__images: Dict[str, Image] = images
         self.__image_cells: Dict[str, Cell] = image_cells
