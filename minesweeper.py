@@ -157,7 +157,7 @@ class Minesweeper:
         nl = "\n"
         return f"<{type(self).__qualname__} {str(self).replace(nl, ',')}>"
 
-    def click(self, xy: Point, action: Action):
+    def click(self, xy: Point, action: Action) -> List[Tuple[Point, int]]:
         if action == Action.OPEN:
             # Opens cell at (x, y).  No-op if cell already open or flagged.
             # Explodes if the cell is a mine.
