@@ -4,6 +4,7 @@ from enum import Enum
 from typing import (
     Dict,
     Iterator,
+    List,
     Tuple,
     TypeVar,
 )
@@ -40,7 +41,7 @@ class Cell(Enum):
     UNKNOWN = "?_UNKNOWN"
 
     def __str__(self) -> str: return self.value[0]
-    def __repr__(self) -> str: return self.str()
+    def __repr__(self) -> str: return str(self)
 
 
 class FindImage:
@@ -64,6 +65,7 @@ class FindImage:
             (("0", Cell.C0), ("1", Cell.C1), ("2", Cell.C2), ("3", Cell.C3),
              ("4", Cell.C4), ("5", Cell.C5), ("6", Cell.C6), ("7", Cell.C7),
              ("8", Cell.C8), ("UNOPENED", Cell.UNOPENED), ("FLAG", Cell.FLAG),
+             ("EXPLODED", Cell.MINE)
              ))
 
         self.__images: Dict[str, Image] = images
@@ -214,6 +216,13 @@ cell_dims: {self.cellwidth}x{self.cellheight}
         return v
 
 
+def board_cells(finder, board, image) -> List[List[Cell]]:
+    array = [[None for j in range(board.cols)] for i in range(board.rows)]
+    for i, j, cell in board.cells(image):
+        array[i][j] = finder.identify_cell(cell)
+    return array
+
+
 if __name__ == "__main__":
     import sys
 
@@ -239,10 +248,9 @@ if __name__ == "__main__":
                 print(e)
                 break
 
-    array = [[None for j in range(board.cols)] for i in range(board.rows)]
+
     for ic, img in enumerate(images):
-        for i, j, cell in board.cells(img):
-            array[i][j] = finder.identify_cell(cell)
         print(f"image {ic}:")
+        array = board_cells(finder, board, img)
         for row in array: print("".join(map(str, row)))
         print()
