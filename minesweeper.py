@@ -261,10 +261,6 @@ class MineSolver:
         print(f"    mines = {mines}")
         print(f"non_mines = {non_mines}")
 
-        for mine_xy in mines:
-            self.known[mine_xy] = MineSolver.MINE
-            self.minesweeper.click(mine_xy, Action.MARK)
-
         return mines, non_mines
 
     def sure_mines_nonmines(

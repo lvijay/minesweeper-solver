@@ -81,7 +81,6 @@ class RobotMinesweeper(Minesweeper):
         if rpx != px or rpy != py:
             raise ValueError(f"Could not move to {px, py}")
         self.robot.click()
-        self.robot.delay(500)
 
         exploded_pt = None
         for i, j, cellimg in self.board.cells(self.robot.screencap()):
