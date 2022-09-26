@@ -68,9 +68,7 @@ class RobotMinesweeper(Minesweeper):
         ys, xs = self.board.cell_dims(cellx, celly)
         return (mid_point(xs), mid_point(ys))
 
-    def click(self, xy: Point, action: Action) -> List[Tuple[Point, int]]:
-        if action == Action.MARK: return []
-
+    def click(self, xy: Point, action: Action) -> None:
         if action != Action.OPEN:
             raise NotImplementedError(f"{action} not implemented")
 
@@ -82,6 +80,7 @@ class RobotMinesweeper(Minesweeper):
             raise ValueError(f"Could not move to {px, py}")
         self.robot.click()
 
+    def get_state(self) -> List[Tuple[Point, int]]:
         exploded_pt = None
         for i, j, cellimg in self.board.cells(self.robot.screencap()):
             cell: Cell = self.finder.identify_cell(cellimg)
@@ -123,17 +122,16 @@ if __name__ == "__main__":
     board = finder.get_new_board(robot.screencap())
     rm = RobotMinesweeper(robot, finder, board)
     solver = MineSolver(rm)
+    solver.update_board_state()
     point0 = next(solver.unknowns())
-    mines, unmines = solver.play(point0)
-    non_mines = set(unmines)
+    rm.click(point0, Action.OPEN)
+    robot.delay(1000)
     while True:
-        if len(non_mines) > 0:
-            point = non_mines.pop()
+        solver = MineSolver(rm)
+        mines, unmines = solver.update_board_state()
+        for point in unmines:
+            rm.click(point, Action.OPEN)
         else:
             point = next(solver.unknowns(), (-1, -1))
-        if point == (-1, -1):
-            print("game ended...")
-            break
-        print(f"playing {point}")
-        _, next_non_mines = solver.play(point)
-        non_mines.update(next_non_mines)
+            rm.click(point, Action.OPEN)
+            robot.delay(1000)
