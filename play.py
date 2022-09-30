@@ -16,7 +16,6 @@ from find_minesweeper_grid import (
     Cell,
     FindImage,
     Image,
-    board_cells,
 )
 
 import cv2
@@ -83,11 +82,17 @@ class RobotMinesweeper(Minesweeper):
     def get_state(self) -> List[Tuple[Point, int]]:
         exploded_pt = None
         for i, j, cellimg in self.board.cells(self.robot.screencap()):
-            cell: Cell = self.finder.identify_cell(cellimg)
+            try:
+                cell: Cell = self.finder.identify_cell(cellimg, f"get_state_{i:02d}{j:02d}")
+            except ValueError as e:
+                print(f"unrecognized image at cell {i, j}")
+                cv2.imwrite(f"o_unknowncell_{i:02d}{j:02d}.png", cellimg)
+                cell = Cell.C0
             count: int = RobotMinesweeper.to_count(cell)
             self[(i, j)] = count
             if count == Minesweeper.MINE:
                 exploded_pt = i, j
+                break
 
         if exploded_pt is not None:
             raise self._explode(exploded_pt)
@@ -128,7 +133,7 @@ if __name__ == "__main__":
     robot.delay(1000)
     while True:
         solver = MineSolver(rm)
-        mines, unmines = solver.update_board_state()
+        unmines = solver.update_board_state()
         for point in unmines:
             rm.click(point, Action.OPEN)
         else:

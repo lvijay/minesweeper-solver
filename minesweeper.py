@@ -234,8 +234,6 @@ class MineSolver:
         return (pt for pt, v in self.known if v == MineSolver.MINE)
 
     def add_known(self, xy: Point, val: int) -> None:
-        if self.known[xy] != val:
-            print(f"add_known{xy}: {self.known[xy]} -> {val}")
         self.known[xy] = val
 
     def update_board_state(self):
@@ -255,7 +253,6 @@ class MineSolver:
             else:  # v is a number
                 solver.add(cells[pt] == 0)
 
-        print(f"", end="")
         for pt, v in self.known:
             if v not in (MineSolver.MINE, MineSolver.UNKNOWN):
                 neighbors = self.known.neighbor_xys(pt)
@@ -266,48 +263,10 @@ class MineSolver:
             raise ValueError("solver in unsat state")
 
         mines, non_mines = self.sure_mines_nonmines(cells, solver)
-        print(f"    mines = {mines}")
-        print(f"non_mines = {non_mines}")
-
         for minexy in mines:
             self.add_known(minexy, MineSolver.MINE)
 
-        return mines, non_mines
-
-#    def play(self, xy: Point) -> Tuple[List[Point], List[Point]]:
-#        if self.known[xy] is not MineSolver.UNKNOWN:
-#            return [], []
-#        print(f"opening ({xy})")
-#        opened = self.minesweeper.click(xy, Action.OPEN)
-#        for pxy, mc in opened:
-#            self.add_known(pxy, mc)
-#
-#        solver: z3.Solver = z3.Solver()
-#        cells: Dict[Point, z3.Int] = dict()
-#        for pt, v in self.known:
-#            cells[pt] = z3.Int(f"c{pt}")
-#            if v == MineSolver.UNKNOWN:
-#                solver.add(z3.Or(cells[pt] == 0, cells[pt] == 1))
-#            elif v == MineSolver.MINE:
-#                solver.add(cells[pt] == 1)
-#            else:  # v is a number
-#                solver.add(cells[pt] == 0)
-#
-#        print(f"", end="")
-#        for pt, v in self.known:
-#            if v not in (MineSolver.MINE, MineSolver.UNKNOWN):
-#                neighbors = self.known.neighbor_xys(pt)
-#                ncells = [cells[nxy] for nxy in neighbors]
-#                solver.add(v == sum(ncells))
-#
-#        if solver.check() == z3.unsat:
-#            raise ValueError("solver in unsat state")
-#
-#        mines, non_mines = self.sure_mines_nonmines(cells, solver)
-#        print(f"    mines = {mines}")
-#        print(f"non_mines = {non_mines}")
-#
-#        return mines, non_mines
+        return non_mines
 
     def sure_mines_nonmines(
         self, cells: Dict[Point, z3.Int], solver: z3.Solver
@@ -383,7 +342,7 @@ if __name__ == "__main__":
     )
 
     print(f"candidate {candidate}")
-    mines, non_mines = s.play(candidate)
+    non_mines = s.play(candidate)
     non_mines = [n for n in non_mines if s.known[n] == MineSolver.UNKNOWN]
     print(f"len(not_mines) = {len(non_mines)}")
     not_mines: Set[Point] = set(non_mines)
@@ -401,7 +360,7 @@ if __name__ == "__main__":
             if point == (-1, -1):
                 break
             print(f"playing {point}", file=out)
-            _, next_set = s.play(point)
+            next_set = s.play(point)
             next_set = [
                 n for n in next_set if s.known[n] == MineSolver.UNKNOWN
             ]

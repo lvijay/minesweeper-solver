@@ -47,15 +47,17 @@ class Cell(Enum):
 class FindImage:
     def __init__(self):
         image_names_files = [
-            ("0", "find_j_0.png"), ("1", "find_j_1.png"),
-            ("2", "find_j_2.png"), ("3", "find_j_3.png"),
-            ("4", "find_j_4.png"), ("5", "find_j_5.png"),
-            ("6", "find_j_6.png"), ("7", "find_j_7.png"),
-            ("8", "find_j_8.png"), ("EXPLODED", "find_j_exploded.png"),
-            ("FINISHED", "find_j_finished.png"), ("FLAG", "find_j_flag.png"),
-            ("UNOPENED", "find_j_uo.png"),
-            ("CORNER.NE", "find_j_ne.png"), ("CORNER.NW", "find_j_nw.png"),
-            ("CORNER.SE", "find_j_se.png"), ("CORNER.SW", "find_j_sw.png")
+            ("0", "find_n_0.png"), ("1", "find_n_1.png"),
+            ("2", "find_n_2.png"), ("3", "find_n_3.png"),
+            ("4", "find_n_4.png"), ("5", "find_n_5.png"),
+            #("6", "find_n_6.png"), ("7", "find_n_7.png"),
+            #("8", "find_n_8.png"),
+            ("EXPLODED", "find_n_mine.png"),
+            ("FINISHED", "find_n_finished.png"),
+            ("FLAG", "find_n_flag.png"),
+            ("UNOPENED", "find_n_uo.png"),
+            ("CORNER.NE", "find_n_ne.png"), ("CORNER.NW", "find_n_nw.png"),
+            ("CORNER.SE", "find_n_se.png"), ("CORNER.SW", "find_n_sw.png")
         ]
         images: Dict[str, Image] = {
             name: image_read(filename)
@@ -63,8 +65,9 @@ class FindImage:
         }
         image_cells = dict(
             (("0", Cell.C0), ("1", Cell.C1), ("2", Cell.C2), ("3", Cell.C3),
-             ("4", Cell.C4), ("5", Cell.C5), ("6", Cell.C6), ("7", Cell.C7),
-             ("8", Cell.C8), ("UNOPENED", Cell.UNOPENED), ("FLAG", Cell.FLAG),
+             ("4", Cell.C4), ("5", Cell.C5), #("6", Cell.C6), ("7", Cell.C7),
+             #("8", Cell.C8),
+             ("UNOPENED", Cell.UNOPENED), ("FLAG", Cell.FLAG),
              ("EXPLODED", Cell.MINE)
              ))
 
@@ -94,6 +97,7 @@ class FindImage:
         "Returns True if the game is over; False otherwise."
         exploded = self["EXPLODED"]
         finished = self["FINISHED"]
+        finished = exploded
         try:
             # a mine has exploded
             self.get_matches(image, exploded, "exploded", 0.95)
@@ -101,7 +105,7 @@ class FindImage:
         except SubImageNotFoundError:
             try:
                 # the game has ended
-                self.get_matches(image, finished, "finished", 0.9)
+                self.get_matches(finished, image, "finished", 0.9)
                 return True
             except SubImageNotFoundError:
                 return False
@@ -112,8 +116,8 @@ class FindImage:
         _, nw_x, nw_y = self.get_unopened_corner(image, "NW")
         _, se_x, se_y = self.get_unopened_corner(image, "SE")
         _, sw_x, sw_y = self.get_unopened_corner(image, "SW")
-        width, hite = 24, 24  # FIXME hardcoding
-        nw_x, nw_y = nw_x[0] + 5, nw_y[0] + 5
+        width, hite = 30, 30  # FIXME hardcoding
+        nw_x, nw_y = nw_x[0] + 11, nw_y[0] + 11  # FIXME hardcoding
         ne_x, ne_y = ne_x[0], ne_y[0]
         sw_x, sw_y = sw_x[0], sw_y[0]
         se_x, se_y = se_x[0], se_y[0]
@@ -126,6 +130,7 @@ class FindImage:
             name: img
             for name, img in self.__images.items()
             if "CORNER" not in name
+            and name != "FINISHED"
         }
 
         def matches(cell, saved_cell, name):
@@ -138,10 +143,12 @@ class FindImage:
             for name, img in saved_cells.items()
             if matches(cell, img, name) is not False
         ]
+        if len(match_vals) > 1:
+            print(f"match_vals {match_vals} multiple for {cellname}")
         if match_vals:
             name = match_vals[-1]  # preferentially take the last match
             return self.__image_cells[name]
-        return Cell.UNKNOWN
+        raise ValueError("Unrecognized image")
 
 
 class SubImageNotFoundError(Exception):
@@ -216,13 +223,6 @@ cell_dims: {self.cellwidth}x{self.cellheight}
         return v
 
 
-def board_cells(finder, board, image) -> List[List[Cell]]:
-    array = [[None for j in range(board.cols)] for i in range(board.rows)]
-    for i, j, cell in board.cells(image):
-        array[i][j] = finder.identify_cell(cell)
-    return array
-
-
 if __name__ == "__main__":
     import sys
 
@@ -248,9 +248,11 @@ if __name__ == "__main__":
                 print(e)
                 break
 
-
     for ic, img in enumerate(images):
         print(f"image {ic}:")
-        array = board_cells(finder, board, img)
+
+        array = [[None for j in range(board.cols)] for i in range(board.rows)]
+        for i, j, cell in board.cells(image):
+            array[i][j] = finder.identify_cell(cell, name=f"{i:02},{j:02}")
         for row in array: print("".join(map(str, row)))
         print()
