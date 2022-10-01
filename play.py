@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import time
 from typing import (
     List,
     Tuple,
@@ -16,11 +17,13 @@ from find_minesweeper_grid import (
     Cell,
     FindImage,
     Image,
+    SubImageNotFoundError,
 )
 
 import cv2
 import numpy as np
 import requests
+
 
 class Robot:
     def __init__(self, port: int):
@@ -47,7 +50,6 @@ class Robot:
         return cv2.imdecode(nparr, cv2.IMREAD_ANYCOLOR)
 
     def delay(self, millis: int) -> None:
-        import time
         time.sleep(1e-3 * millis)
 
     def __request(self, path, params={}):
@@ -71,8 +73,6 @@ class RobotMinesweeper(Minesweeper):
         if action != Action.OPEN:
             raise NotImplementedError(f"{action} not implemented")
 
-        print(f"opening {xy}")
-
         px, py = self.location(*xy)
         rpx, rpy = self.robot.move_to(px, py)
         if rpx != px or rpy != py:
@@ -81,15 +81,23 @@ class RobotMinesweeper(Minesweeper):
 
     def get_state(self) -> List[Tuple[Point, int]]:
         exploded_pt = None
-        for i, j, cellimg in self.board.cells(self.robot.screencap()):
+        image = self.robot.screencap()
+        for i, j, cellimg in self.board.cells(image):
             try:
-                cell: Cell = self.finder.identify_cell(cellimg, f"get_state_{i:02d}{j:02d}")
-            except ValueError as e:
-                print(f"unrecognized image at cell {i, j}")
-                cv2.imwrite(f"o_unknowncell_{i:02d}{j:02d}.png", cellimg)
-                cell = Cell.C0
+                cell: Cell = self.finder.identify_cell(cellimg)
+            except SubImageNotFoundError as e:
+                identifier = int(time.time())
+                cellimage = f"o_{identifier}_{i},{j}.png"
+                boardimage = f"o_{identifier}_board.png"
+                print(f"cell identification error at {i,j}"
+                    " saving cell to {cellimage},"
+                    " saving board to {boardimage}")
+                cv2.imwrite(cellimage, cellimg)
+                cv2.imwrite(boardimage, image)
+                raise e
+
             count: int = RobotMinesweeper.to_count(cell)
-            self[(i, j)] = count
+            self[i, j] = count
             if count == Minesweeper.MINE:
                 exploded_pt = i, j
                 break
@@ -121,22 +129,23 @@ class RobotMinesweeper(Minesweeper):
         }[cell]
 
 
-if __name__ == "__main__":
-    robot = Robot(8888)
+def play(robot):
     finder = FindImage()
     board = finder.get_new_board(robot.screencap())
     rm = RobotMinesweeper(robot, finder, board)
     solver = MineSolver(rm)
-    solver.update_board_state()
-    point0 = next(solver.unknowns())
-    rm.click(point0, Action.OPEN)
-    robot.delay(1000)
     while True:
-        solver = MineSolver(rm)
         unmines = solver.update_board_state()
-        for point in unmines:
+        if len(unmines) == 0:
+            point = next(solver.unknowns())
+            print(f"guessing... {point}")
             rm.click(point, Action.OPEN)
         else:
-            point = next(solver.unknowns(), (-1, -1))
-            rm.click(point, Action.OPEN)
-            robot.delay(1000)
+            print(f"opening...  {unmines}")
+            for point in unmines:
+                rm.click(point, Action.OPEN)
+
+
+if __name__ == "__main__":
+    robot = Robot(8888)
+    play(robot)
