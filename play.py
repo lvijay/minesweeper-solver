@@ -26,9 +26,18 @@ import requests
 
 
 class Robot:
+    @staticmethod
+    def _distance(p1, p2) -> int:
+        p1x, p1y = p1
+        p2x, p2y = p2
+        return int(((p1x - p2x) ** 2 + (p1y - p2y) ** 2) ** 0.5)
+
     def __init__(self, port: int):
         self.__port = port
         self.__url = f"http://localhost:{port}"
+        self.lastpos: Tuple[int, int] = (-1, -1)
+        self.total_distance: int = 0
+        self.total_clicks = 0
 
     def move_to(self, x, y) -> Point:
         rx, ry = -1, -1
@@ -36,12 +45,16 @@ class Robot:
             rj = self.__request("mousemove", {"x": x, "y": y}).json()
             rx, ry = rj["x"], rj["y"]
             if rx == x and ry == y:
-                return (x, y)
+                break
+        if self.lastpos == (-1, -1): self.lastpos = x, y
+        self.total_distance += Robot._distance(self.lastpos, (rx, ry))
+        self.lastpos = rx, ry
         return rx, ry
 
     def click(self) -> Point:
         rj = self.__request("mouseclick").json()
         rx, ry = rj["x"], rj["y"]
+        self.total_clicks += 1
         return rx, ry
 
     def screencap(self) -> Image:
@@ -123,7 +136,7 @@ class RobotMinesweeper(Minesweeper):
         }[cell]
 
 
-def play(robot, selector):
+def play(robot, selector, actions):
     finder = FindImage()
     board = finder.get_new_board(robot.screencap())
     rm = RobotMinesweeper(robot, finder, board)
@@ -136,9 +149,11 @@ def play(robot, selector):
                 raise ValueError("solved")
             point = selector(unknowns)
             print(f"guessing... {point}")
+            actions.append(0)
             rm.click(point, Action.OPEN)
         else:
             print(f"opening...  {unmines}")
+            actions.append(len(unmines))
             for point in unmines:
                 rm.click(point, Action.OPEN)
 
@@ -155,15 +170,20 @@ if __name__ == "__main__":
     robot = Robot(port)
     p = print
     print = lambda *args: p(*args, file=sys.stderr)
+    actions = []
     start_time_ns = time.time_ns()
 
     def result(solved, start):
         timetaken_ms = int((time.time_ns() - start) // 1e6)
         result = 'solved' if solved else 'exploded'
-        p(f"Game {result} in {timetaken_ms} ms")
+        clicks = robot.total_clicks
+        distance = robot.total_distance
+        guesses = sum((1 for c in actions if c == 0))
+        knowns = "|".join((str(c) for c in actions if c != 0))
+        p(f"Game {result} {timetaken_ms}ms {clicks} {distance}px {guesses} {knowns}")
 
     try:
-        play(robot, selector)
+        play(robot, selector, actions)
     except ValueError as e:
         end = time.time()
         if "Exploded" in e.args[0]:
@@ -171,7 +191,9 @@ if __name__ == "__main__":
         elif "solved" in e.args[0]:
             result(solved=True, start=start_time_ns)
         elif "cell identification error" in e.args[0]:
-            print("Could not identify cell")
+            p(f"Could not identify cell {e}")
+        else:
+            p(f"unknown error {e}")
         sys.exit(0)
     except SubImageNotFoundError:
         result(solved=True, start=start_time_ns)
