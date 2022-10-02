@@ -8,7 +8,6 @@ from math import (
 from typing import (
     Dict,
     Iterator,
-    List,
     Tuple,
     TypeVar,
 )
@@ -185,7 +184,7 @@ class SubImageNotFoundError(Exception):
 
 class TooManyMatchesFoundError(Exception):
     def __init__(self):
-        super().__init__(f"Found too many matches")
+        super().__init__("Found too many matches")
 
 
 class Board:

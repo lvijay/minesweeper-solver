@@ -95,7 +95,7 @@ class RobotMinesweeper(Minesweeper):
                     f" saving board to {boardimage}")
                 cv2.imwrite(cellimage, cellimg)
                 cv2.imwrite(boardimage, image)
-                raise ValueError("cell identification error")
+                raise ValueError("cell identification error", e)
 
             count: int = RobotMinesweeper.to_count(cell)
             self[i, j] = count
@@ -152,15 +152,16 @@ def play(robot):
 
 if __name__ == "__main__":
     import sys
-    import datetime
     robot = Robot(8888)
     p = print
     print = lambda *args: p(*args, file=sys.stderr)
     start_time_ns = time.time_ns()
+
     def result(solved, start):
         timetaken_ms = int((time.time_ns() - start) // 1e6)
         result = 'solved' if solved else 'exploded'
         p(f"Game {result} in {timetaken_ms} ms")
+
     try:
         play(robot)
     except ValueError as e:
@@ -170,7 +171,7 @@ if __name__ == "__main__":
         elif "solved" in e.args[0]:
             result(True, start_time_ns)
         elif "cell identification error" in e.args[0]:
-            print(f"Could not identify cell")
+            print("Could not identify cell")
         sys.exit(0)
     except SubImageNotFoundError:
         result(True, start_time_ns)
