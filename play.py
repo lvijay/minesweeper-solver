@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from random import choice
 import time
 from typing import (
     List,
@@ -90,11 +91,11 @@ class RobotMinesweeper(Minesweeper):
                 cellimage = f"o_{identifier}_{i},{j}.png"
                 boardimage = f"o_{identifier}_board.png"
                 print(f"cell identification error at {i,j}"
-                    " saving cell to {cellimage},"
-                    " saving board to {boardimage}")
+                    f" saving cell to {cellimage},"
+                    f" saving board to {boardimage}")
                 cv2.imwrite(cellimage, cellimg)
                 cv2.imwrite(boardimage, image)
-                raise e
+                raise ValueError("cell identification error")
 
             count: int = RobotMinesweeper.to_count(cell)
             self[i, j] = count
@@ -137,7 +138,10 @@ def play(robot):
     while True:
         unmines = solver.update_board_state()
         if len(unmines) == 0:
-            point = next(solver.unknowns())
+            unknowns = list(solver.unknowns())
+            if len(unknowns) == 0:
+                raise ValueError("solved")
+            point = choice(unknowns)
             print(f"guessing... {point}")
             rm.click(point, Action.OPEN)
         else:
@@ -147,5 +151,30 @@ def play(robot):
 
 
 if __name__ == "__main__":
+    import sys
+    import datetime
     robot = Robot(8888)
-    play(robot)
+    p = print
+    print = lambda *args: p(*args, file=sys.stderr)
+    start_time_ns = time.time_ns()
+    def result(solved, start):
+        timetaken_ms = int((time.time_ns() - start) // 1e6)
+        result = 'solved' if solved else 'exploded'
+        p(f"Game {result} in {timetaken_ms} ms")
+    try:
+        play(robot)
+    except ValueError as e:
+        end = time.time()
+        if "Exploded" in e.args[0]:
+            result(False, start_time_ns)
+        elif "solved" in e.args[0]:
+            result(True, start_time_ns)
+        elif "cell identification error" in e.args[0]:
+            print(f"Could not identify cell")
+        sys.exit(0)
+    except SubImageNotFoundError:
+        result(True, start_time_ns)
+        sys.exit(0)
+    except requests.exceptions.ConnectionError:
+        p("Robot server failure")
+        sys.exit(1)
