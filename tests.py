@@ -2,7 +2,7 @@
 ## TODO make them work
 
 
-def find_minesweeper_grid_test():
+def test_find_minesweeper_grid():
     import sys
     from find_minesweeper_grid import *
 

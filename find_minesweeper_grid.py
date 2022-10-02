@@ -57,7 +57,6 @@ class FindImage:
             ("6", "find_n_6.png"), ("7", "find_n_7.png"),
             ("8", "find_n_8.png"),
             ("EXPLODED", "find_n_mine.png"),
-            ("FINISHED", "find_n_finished.png"),
             ("FLAG", "find_n_flag.png"),
             ("UNOPENED", "find_n_uo.png"),
             ("CORNER.NE", "find_n_ne.png"), ("CORNER.NW", "find_n_nw.png"),
@@ -95,11 +94,9 @@ class FindImage:
             raise SubImageNotFoundError(name)
         return xs, ys
 
-    def get_unopened_corner(self, image, corner) -> Tuple[
-            Image, np.ndarray, np.ndarray
-    ]:
+    def get_unopened_corner(self, image, corner) -> Pair[np.ndarray]:
         template = self[f"CORNER.{corner}"]
-        return template, *self.get_matches(
+        return self.get_matches(
             image,
             template,
             corner,
@@ -110,8 +107,6 @@ class FindImage:
     def is_game_ended(self, image) -> bool:
         "Returns True if the game is over; False otherwise."
         exploded = self["EXPLODED"]
-        finished = self["FINISHED"]
-        finished = exploded
         try:
             # a mine has exploded
             self.get_matches(
@@ -123,25 +118,15 @@ class FindImage:
             )
             return True
         except SubImageNotFoundError:
-            try:
-                # the game has ended
-                self.get_matches(
-                    finished,
-                    image,
-                    "finished",
-                    0.9,
-                    cv2.TM_CCOEFF_NORMED
-                )
-                return True
-            except SubImageNotFoundError:
-                return False
+            pass
+
         return False
 
     def get_new_board(self, image):
-        _, ne_x, ne_y = self.get_unopened_corner(image, "NE")
-        _, nw_x, nw_y = self.get_unopened_corner(image, "NW")
-        _, se_x, se_y = self.get_unopened_corner(image, "SE")
-        _, sw_x, sw_y = self.get_unopened_corner(image, "SW")
+        ne_x, ne_y = self.get_unopened_corner(image, "NE")
+        nw_x, nw_y = self.get_unopened_corner(image, "NW")
+        se_x, se_y = self.get_unopened_corner(image, "SE")
+        sw_x, sw_y = self.get_unopened_corner(image, "SW")
         width, hite = 30, 30  # FIXME hardcoding
         nwx, nwy = nw_x[0] + 11, nw_y[0] + 11  # FIXME hardcoding
         board_width = ne_x[0] - nwx + width
@@ -153,7 +138,6 @@ class FindImage:
             name: img
             for name, img in self.__images.items()
             if "CORNER" not in name
-            and name != "FINISHED"
         }
 
         def matches(cell, saved_cell, name, algo=cv2.TM_CCOEFF_NORMED):
@@ -174,8 +158,8 @@ class FindImage:
         match_vals = []
         for name, img in saved_cells.items():
             try:
-               matches(cell, img, name)
-               match_vals.append(name)
+                matches(cell, img, name)
+                match_vals.append(name)
             except SubImageNotFoundError:
                 pass
         else:
@@ -215,36 +199,14 @@ class Board:
         self.__cols = round(self.__boardwidth / self.__cellwidth)
 
     @property
-    def rows(self) -> int:
-        return self.__rows
+    def rows(self) -> int: return self.__rows
 
     @property
-    def cols(self) -> int:
-        return self.__cols
-
-    @property
-    def nw_row(self) -> int: return self.__nw_row
-
-    @property
-    def nw_col(self) -> int: return self.__nw_col
-
-    @property
-    def width(self) -> int:
-        return self.__boardwidth
-
-    @property
-    def height(self) -> int:
-        return self.__boardheight
-
-    @property
-    def cellwidth(self) -> int: return self.__cellwidth
-
-    @property
-    def cellheight(self) -> int: return self.__cellheight
+    def cols(self) -> int: return self.__cols
 
     def cell_dims(self, row, col) -> Pair[slice]:
-        x, y = self.nw_row, self.nw_col
-        h, w = self.cellheight, self.cellwidth
+        x, y = self.__nw_row, self.__nw_col
+        h, w = self.__cellheight, self.__cellwidth
         xstart, ystart = x + col * w, y + row * h
         xend, yend = xstart + w, ystart + h
         return slice(ystart, yend), slice(xstart, xend)
@@ -261,50 +223,3 @@ class Board:
             for rowi in range(self.rows)
             for colj in range(self.cols)
         )
-
-    def __str__(self) -> str:
-        v = f"""Board<
-cells    : {self.rows}x{self.cols}
-dims     : {self.nw_row}x{self.nw_col}+{self.width}x{self.height}
-cell_dims: {self.cellwidth}x{self.cellheight}
->"""
-        return v
-
-
-if __name__ == "__main__":
-    import sys
-
-    filename = sys.argv[1]
-    other_images = sys.argv[2:]
-
-    image = image_read(filename)
-    finder = FindImage()
-
-    if finder.is_game_ended(image):
-        print("game over")
-        sys.exit(0)
-
-    board = finder.get_new_board(image)
-    print(board)
-    images = [image] + [image_read(imgfile) for imgfile in other_images]
-    for ic, img in enumerate(images):
-        for i, j, cell in board.cells(img):
-            try:
-                cv2.imwrite(f"o_{ic}_{i:02d}-{j:02d}.png", cell)
-            except Exception as e:
-                print(f"error at ic,i,j={ic},{i},{j}")
-                print(e)
-                break
-
-    for ic, img in enumerate(images):
-        print(f"image {ic}:")
-
-        array = [[None for j in range(board.cols)] for i in range(board.rows)]
-        for i, j, cell in board.cells(image):
-            try:
-                array[i][j] = finder.identify_cell(cell)
-            except SubImageNotFoundError as e:
-                print(e)
-                print(f"could not identify cell at ({i},{j})")
-        for row in array: print("".join(map(str, row)))
-        print()
