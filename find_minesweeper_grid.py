@@ -54,8 +54,7 @@ class FindImage:
             ("0", "find_n_0.png"), ("1", "find_n_1.png"),
             ("2", "find_n_2.png"), ("3", "find_n_3.png"),
             ("4", "find_n_4.png"), ("5", "find_n_5.png"),
-            ("6", "find_n_6.png"),
-#            ("7", "find_n_7.png"),
+            ("6", "find_n_6.png"), ("7", "find_n_7.png"),
             ("8", "find_n_8.png"),
             ("EXPLODED", "find_n_mine.png"),
             ("FINISHED", "find_n_finished.png"),
@@ -70,10 +69,8 @@ class FindImage:
         }
         image_cells = dict(
             (("0", Cell.C0), ("1", Cell.C1), ("2", Cell.C2), ("3", Cell.C3),
-             ("4", Cell.C4), ("5", Cell.C5), ("6", Cell.C6),
-#             ("7", Cell.C7),
-             ("8", Cell.C8),
-             ("UNOPENED", Cell.UNOPENED), ("FLAG", Cell.FLAG),
+             ("4", Cell.C4), ("5", Cell.C5), ("6", Cell.C6), ("7", Cell.C7),
+             ("8", Cell.C8), ("UNOPENED", Cell.UNOPENED), ("FLAG", Cell.FLAG),
              ("EXPLODED", Cell.MINE)
              ))
 
