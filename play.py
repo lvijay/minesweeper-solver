@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-from random import choice
 import time
 from typing import (
     List,
@@ -81,7 +80,6 @@ class RobotMinesweeper(Minesweeper):
         self.robot.click()
 
     def get_state(self) -> List[Tuple[Point, int]]:
-        exploded_pt = None
         image = self.robot.screencap()
         for i, j, cellimg in self.board.cells(image):
             try:
@@ -96,15 +94,10 @@ class RobotMinesweeper(Minesweeper):
                 cv2.imwrite(cellimage, cellimg)
                 cv2.imwrite(boardimage, image)
                 raise ValueError("cell identification error", e)
-
             count: int = RobotMinesweeper.to_count(cell)
             self[i, j] = count
             if count == Minesweeper.MINE:
-                exploded_pt = i, j
-                break
-
-        if exploded_pt is not None:
-            raise self._explode(exploded_pt)
+                raise self._explode((i, j))
 
         return [
             ((i, j), self[i, j])
@@ -130,7 +123,7 @@ class RobotMinesweeper(Minesweeper):
         }[cell]
 
 
-def play(robot):
+def play(robot, selector):
     finder = FindImage()
     board = finder.get_new_board(robot.screencap())
     rm = RobotMinesweeper(robot, finder, board)
@@ -141,7 +134,7 @@ def play(robot):
             unknowns = list(solver.unknowns())
             if len(unknowns) == 0:
                 raise ValueError("solved")
-            point = choice(unknowns)
+            point = selector(unknowns)
             print(f"guessing... {point}")
             rm.click(point, Action.OPEN)
         else:
@@ -152,7 +145,14 @@ def play(robot):
 
 if __name__ == "__main__":
     import sys
-    robot = Robot(8888)
+    from random import choice
+
+    default_args = '8888 first'.split()
+    args = sys.argv[1:] + default_args[len(sys.argv) - 1:]
+    port = int(args[0])
+    selector = (lambda lst: lst[0]) if args[1] == 'first' else choice
+
+    robot = Robot(port)
     p = print
     print = lambda *args: p(*args, file=sys.stderr)
     start_time_ns = time.time_ns()
@@ -163,18 +163,18 @@ if __name__ == "__main__":
         p(f"Game {result} in {timetaken_ms} ms")
 
     try:
-        play(robot)
+        play(robot, selector)
     except ValueError as e:
         end = time.time()
         if "Exploded" in e.args[0]:
-            result(False, start_time_ns)
+            result(solved=False, start=start_time_ns)
         elif "solved" in e.args[0]:
-            result(True, start_time_ns)
+            result(solved=True, start=start_time_ns)
         elif "cell identification error" in e.args[0]:
             print("Could not identify cell")
         sys.exit(0)
     except SubImageNotFoundError:
-        result(True, start_time_ns)
+        result(solved=True, start=start_time_ns)
         sys.exit(0)
     except requests.exceptions.ConnectionError:
         p("Robot server failure")
