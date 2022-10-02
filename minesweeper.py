@@ -15,7 +15,6 @@ from typing import (
     Iterator,
     List,
     Optional,
-    Set,
     Tuple,
     TypeVar,
     Union,
@@ -120,12 +119,10 @@ class Minesweeper:
         self.__exploded = False
 
     @property
-    def m(self):
-        return self.__m
+    def m(self): return self.__m
 
     @property
-    def n(self):
-        return self.__n
+    def n(self): return self.__n
 
     def __getitem__(self, v: Point) -> int:
         return self.__grid[v]
@@ -157,7 +154,7 @@ class Minesweeper:
         nl = "\n"
         return f"<{type(self).__qualname__} {str(self).replace(nl, ',')}>"
 
-    def click(self, xy: Point, action: Action) -> List[Tuple[Point, int]]:
+    def click(self, xy: Point, action: Action) -> None:
         if action == Action.OPEN:
             # Opens cell at (x, y).  No-op if cell already open or flagged.
             # Explodes if the cell is a mine.
@@ -166,10 +163,10 @@ class Minesweeper:
             if self.__mines[xy] is True:
                 raise self._explode(xy)
             if self[xy] == Minesweeper.FLAG:
-                return []
-            return self._open(xy)
+                pass
+            self._open(xy)
         elif action == Action.CHORD:
-            raise NotImplementedError(f"CHORD not yet implemented")
+            raise NotImplementedError("CHORD not yet implemented")
         elif action == Action.MARK:
             self[xy] = Minesweeper.FLAG
         elif action == Action.UNMARK:
@@ -213,7 +210,6 @@ class Minesweeper:
         ]
 
 
-
 class MineSolver:
     UNKNOWN = 10
     MINE = 11
@@ -224,14 +220,10 @@ class MineSolver:
         self.__known: Board[int] = Board(self.m, self.n, MineSolver.UNKNOWN)
 
     @property
-    def known(self):
-        return self.__known
+    def known(self): return self.__known
 
     def unknowns(self) -> Iterable[Point]:
         return (pt for pt, v in self.known if v == MineSolver.UNKNOWN)
-
-    def mines(self) -> Iterable[Point]:
-        return (pt for pt, v in self.known if v == MineSolver.MINE)
 
     def add_known(self, xy: Point, val: int) -> None:
         self.known[xy] = val
@@ -289,87 +281,5 @@ class MineSolver:
         ]
 
         return mines, nonmines
-
-    def __str__(self) -> str:
-        def tos(v):
-            if v == MineSolver.MINE:
-                return "*"
-            if v == MineSolver.UNKNOWN:
-                return "@"
-            return str(v)
-
-        l1 = str(self.minesweeper).split("\n")
-        l2 = [
-            "".join(tos(self.known[i, j]) for j in range(self.n))
-            for i in range(self.m)
-        ]
-
-        return "\n  | " + "\n  | ".join(
-            l1r + "\t" + l2r for l1r, l2r in zip(l1, l2)
-        )
-
-
-if __name__ == "__main__":
-    ms = """010000000
-            010000000
-            000000000
-            000001100
-            000000000
-            000000000
-            000000000
-            101010101
-            000000000
-            000000111
-            000000000""".replace(
-        " ", ""
-    ).replace(
-        "\n", ""
-    )
-    b = Minesweeper(
-        11,
-        9,
-        mines=([False, True][x == "1"] for x in ms),
-    )
-    b = Minesweeper(11, 9, minecount=41)
-    s = MineSolver(b)
-    print(s)
-
-    candidate: Point = next(
-        (i, j)
-        for i in range(b.m)
-        for j in range(b.n)
-        if b._minecount((i, j)) == 0 and b._Minesweeper__mines[i, j] is False
-    )
-
-    print(f"candidate {candidate}")
-    non_mines = s.play(candidate)
-    non_mines = [n for n in non_mines if s.known[n] == MineSolver.UNKNOWN]
-    print(f"len(not_mines) = {len(non_mines)}")
-    not_mines: Set[Point] = set(non_mines)
-    import time
-
-    start = time.time()
-    with open("debug.txt", "w") as out:
-        print(s, file=out)
-        while True:
-            point: Point
-            if len(not_mines) > 0:
-                point = not_mines.pop()
-            else:
-                point = next(s.unknowns(), (-1, -1))
-            if point == (-1, -1):
-                break
-            print(f"playing {point}", file=out)
-            next_set = s.play(point)
-            next_set = [
-                n for n in next_set if s.known[n] == MineSolver.UNKNOWN
-            ]
-            print(s, file=out)
-            print(f"len(next_set)  = {len(next_set)}")
-            not_mines.update(next_set)
-        print(s, file=out)
-    print(s)
-    end = time.time()
-    print(f"time taken = {end - start} ms")
 
 # minesweeper.py ends here
