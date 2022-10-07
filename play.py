@@ -98,6 +98,8 @@ class RobotMinesweeper(Minesweeper):
             try:
                 cell: Cell = self.finder.identify_cell(cellimg)
             except SubImageNotFoundError as e:
+                if self.finder.is_game_ended(image):
+                    raise ValueError("game solved")
                 identifier = int(time.time())
                 cellimage = f"o_{identifier}_{i},{j}.png"
                 boardimage = f"o_{identifier}_board.png"

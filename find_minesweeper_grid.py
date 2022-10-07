@@ -56,6 +56,7 @@ class FindImage:
             ("6", "find_n_6.png"), ("7", "find_n_7.png"),
             ("8", "find_n_8.png"),
             ("EXPLODED", "find_n_mine.png"),
+            ("FINISHED", "find_n_finished.png"),
             ("FLAG", "find_n_flag.png"),
             ("UNOPENED", "find_n_uo.png"),
             ("CORNER.NE", "find_n_ne.png"), ("CORNER.NW", "find_n_nw.png"),
@@ -105,13 +106,13 @@ class FindImage:
 
     def is_game_ended(self, image) -> bool:
         "Returns True if the game is over; False otherwise."
-        exploded = self["EXPLODED"]
+        finished = self["FINISHED"]
         try:
-            # a mine has exploded
+            # the new game alert is on
             self.get_matches(
                 image,
-                exploded,
-                "exploded",
+                finished,
+                "finished",
                 0.95,
                 cv2.TM_CCOEFF_NORMED
             )
@@ -137,6 +138,7 @@ class FindImage:
             name: img
             for name, img in self.__images.items()
             if "CORNER" not in name
+            and "FINISHED" not in name
         }
 
         def matches(cell, saved_cell, name, algo=cv2.TM_CCOEFF_NORMED):
