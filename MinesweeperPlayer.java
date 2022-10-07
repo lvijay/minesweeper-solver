@@ -127,7 +127,18 @@ public class MinesweeperPlayer {
         @Override
         protected byte[] handle(Map<String, String> qparams, Headers headers)
                 throws IOException {
-            var img = robot.createScreenCapture(new Rectangle(screenDims));
+            int x = Integer.parseInt(qparams.getOrDefault("x", "-1"));
+            int y = Integer.parseInt(qparams.getOrDefault("y", "-1"));
+            int w = Integer.parseInt(qparams.getOrDefault("w", "-1"));
+            int h = Integer.parseInt(qparams.getOrDefault("h", "-1"));
+
+            Rectangle bounds;
+            if (x > 0 && y > 0 && w > 0 && h > 0) {
+                bounds = new Rectangle(x, y, w, h);
+            } else {
+                bounds = new Rectangle(screenDims);
+            }
+            var img = robot.createScreenCapture(bounds);
             int filesize = img.getWidth() * img.getHeight() * 3;
             var out = new ByteArrayOutputStream(filesize);
 
