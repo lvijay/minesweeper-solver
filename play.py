@@ -38,6 +38,7 @@ class Robot:
         self.lastpos: Tuple[int, int] = (-1, -1)
         self.total_distance: int = 0
         self.total_clicks = 0
+        self.total_bandwidth = 0
 
     def move_to(self, x, y) -> Point:
         rx, ry = -1, -1
@@ -59,6 +60,7 @@ class Robot:
 
     def screencap(self) -> Image:
         img = self.__request("screencap").content
+        total_bandwidth += img.length
         nparr = np.frombuffer(img, np.uint8)
         return cv2.imdecode(nparr, cv2.IMREAD_ANYCOLOR)
 
