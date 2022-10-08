@@ -226,7 +226,9 @@ if __name__ == "__main__":
         bandwidth = robot.total_bandwidth
         guesses = sum((1 for c in actions if c == 0))
         knowns = "|".join((str(c) for c in actions if c != 0))
-        p(f"Game {result} {timetaken_ms}ms {clicks} {distance}px {guesses} {knowns}")
+        # result timetaken clicks guesses matchTemplate bandwidth
+        p(f"| {result:8s} | {timetaken_ms:7d} | {clicks:6d} | {guesses:7d} | "
+            f"{counter[0]:15d} | {bandwidth:9d} |")
 
     try:
         play(
