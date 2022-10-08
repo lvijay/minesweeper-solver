@@ -58,9 +58,15 @@ class Robot:
         self.total_clicks += 1
         return rx, ry
 
-    def screencap(self) -> Image:
-        img = self.__request("screencap").content
-        total_bandwidth += img.length
+    def screencap(
+            self, x: int = None, y: int = None, w: int = None, h: int = None
+    ) -> Image:
+        if all(isinstance(v, int) for v in (x, y, w, h)):
+            params = {"x": x, "y": y, "w": w, "h": h}
+        else:
+            params = {}
+        img = self.__request("screencap", params=params).content
+        self.total_bandwidth += len(img)
         nparr = np.frombuffer(img, np.uint8)
         return cv2.imdecode(nparr, cv2.IMREAD_ANYCOLOR)
 
@@ -72,17 +78,18 @@ class Robot:
 
 
 class RobotMinesweeper(Minesweeper):
-    def __init__(self, robot: Robot, finder: FindImage, board: Board):
+    def __init__(self, robot: Robot, finder: FindImage, board: Board, topleft):
         self.robot: Robot = robot
         self.finder: FindImage = finder
         self.board: Board = board
+        self.nwx, self.nwy = topleft
         super().__init__(board.rows, board.cols, minecount=1)
 
     def location(self, cellx, celly) -> Tuple[int, int]:
         def mid_point(slice_r):
             return slice_r.start + (slice_r.stop - slice_r.start) // 2
         ys, xs = self.board.cell_dims(cellx, celly)
-        return (mid_point(xs), mid_point(ys))
+        return (self.nwx + mid_point(xs), self.nwy + mid_point(ys))
 
     def click(self, xy: Point, action: Action) -> None:
         if action != Action.OPEN:
@@ -94,9 +101,17 @@ class RobotMinesweeper(Minesweeper):
             raise ValueError(f"Could not move to {px, py}")
         self.robot.click()
 
-    def get_state(self) -> List[Tuple[Point, int]]:
+    def _screencap(self):
+        w, h = board.boardwidth, board.boardheight
         image = self.robot.screencap()
-        for i, j, cellimg in self.board.cells(image):
+        return image[self.nwy:self.nwy+h, self.nwx:self.nwx+w]
+
+    def get_state(self, points: List[Point] = None) -> List[Tuple[Point, int]]:
+        image = self._screencap()
+        if points is None:
+            points = [(i, j) for i in range(self.m) for j in range(self.n)]
+        for i, j in points:
+            cellimg: Image = self.board.cell_image(image, i, j)
             try:
                 cell: Cell = self.finder.identify_cell(cellimg)
             except SubImageNotFoundError as e:
@@ -140,9 +155,10 @@ class RobotMinesweeper(Minesweeper):
         }[cell]
 
 
-def play(robot, selector, actions, refresh):
+def play(robot, rm, selector, actions, limit, refresh):
     solver = MineSolver(rm)
-    while True:
+    i = 0
+    while i < limit:
         unmines = solver.update_board_state(fetch_full_board=refresh)
         if len(unmines) == 0:
             unknowns = list(solver.unknowns())
@@ -152,11 +168,14 @@ def play(robot, selector, actions, refresh):
             print(f"guessing... {point}")
             actions.append(0)
             rm.click(point, Action.OPEN)
+            i += 1
         else:
             print(f"opening...  {unmines}")
             actions.append(len(unmines))
             for point in unmines:
                 rm.click(point, Action.OPEN)
+            i += len(unmines)
+    raise ValueError("too many moves")
 
 
 if __name__ == "__main__":
@@ -176,7 +195,28 @@ if __name__ == "__main__":
     p = print
     print = lambda *args: p(*args, file=sys.stderr)
     actions = []
-    start_time_ns = time.time_ns()
+    start_time_ns = time.perf_counter_ns()
+
+    # count number of times we call finder.get_matches
+    finder = FindImage()
+    counter = [0]
+    def count_it(fn):
+        """Counts number of times a function is called."""
+        def cfn(*args, **kwargs):
+            counter[0] += 1
+            return fn(*args, **kwargs)
+        return cfn
+    finder.get_matches = count_it(finder.get_matches)
+
+    (nwx, nwy), board = finder.get_new_board(robot.screencap())
+    rm = RobotMinesweeper(robot, finder, board, (nwx, nwy))
+
+    if screencap == 'board':
+        def _screencap():
+            w, h = board.boardwidth, board.boardheight
+            image = robot.screencap(nwx, nwy, w, h)
+            return image
+        rm._screencap = _screencap
 
     def result(solved, start):
         timetaken_ms = int((time.perf_counter_ns() - start) // 1e6)
@@ -191,8 +231,10 @@ if __name__ == "__main__":
     try:
         play(
             robot=robot,
+            rm=rm,
             selector=selector,
             actions=actions,
+            limit=maxmoves,
             refresh=refresh,
         )
     except ValueError as e:

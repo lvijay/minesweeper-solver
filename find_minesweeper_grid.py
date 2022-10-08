@@ -6,6 +6,7 @@ from math import (
     floor,
 )
 from typing import (
+    Any,
     Dict,
     Iterator,
     Tuple,
@@ -87,7 +88,6 @@ class FindImage:
             threshold: float,
             algo: int
     ) -> Pair[np.ndarray]:
-        h, w = template.shape[:2]
         match = cv2.matchTemplate(image, template, algo)
         ys, xs = np.asarray(match >= threshold).nonzero()
         if len(ys) == 0 or len(xs) == 0:
@@ -122,16 +122,16 @@ class FindImage:
 
         return False
 
-    def get_new_board(self, image):
+    def get_new_board(self, image) -> Tuple[Tuple[int, int], Any]:
         ne_x, ne_y = self.get_unopened_corner(image, "NE")
         nw_x, nw_y = self.get_unopened_corner(image, "NW")
         se_x, se_y = self.get_unopened_corner(image, "SE")
         sw_x, sw_y = self.get_unopened_corner(image, "SW")
         width, hite = 30, 30  # FIXME hardcoding
-        nwx, nwy = nw_x[0] + 11, nw_y[0] + 11  # FIXME hardcoding
-        board_width = ne_x[0] - nwx + width
-        board_height = se_y[0] - nwy + hite
-        return Board((nwx, nwy), (board_width, board_height), (width, hite))
+        nwx, nwy = int(nw_x[0] + 11), int(nw_y[0] + 11)  # FIXME hardcoding
+        board_width = int(ne_x[0] - nwx + width)
+        board_height = int(se_y[0] - nwy + hite)
+        return (nwx, nwy), Board((board_width, board_height), (width, hite))
 
     def identify_cell(self, cell: Image) -> Cell:
         saved_cells = {
@@ -190,8 +190,7 @@ class TooManyMatchesFoundError(Exception):
 
 
 class Board:
-    def __init__(self, nwrowcol, board_dims, cell_dims):
-        self.__nw_row, self.__nw_col = nwrowcol
+    def __init__(self, board_dims, cell_dims):
         self.__cellwidth = cell_dims[0]
         self.__cellheight = cell_dims[1]
         self.__boardwidth = board_dims[0]
@@ -205,10 +204,15 @@ class Board:
     @property
     def cols(self) -> int: return self.__cols
 
+    @property
+    def boardwidth(self): return self.__boardwidth
+
+    @property
+    def boardheight(self): return self.__boardheight
+
     def cell_dims(self, row, col) -> Pair[slice]:
-        x, y = self.__nw_row, self.__nw_col
         h, w = self.__cellheight, self.__cellwidth
-        xstart, ystart = x + col * w, y + row * h
+        xstart, ystart = col * w, row * h
         xend, yend = xstart + w, ystart + h
         return slice(ystart, yend), slice(xstart, xend)
 
