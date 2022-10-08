@@ -183,7 +183,7 @@ if __name__ == "__main__":
     from random import choice
 
     # Parse CLI args
-    default_args = '8888 first fullscreen 100 True'.split()
+    default_args = '8888 first fullscreen 300 True'.split()
     args = sys.argv[1:] + default_args[len(sys.argv) - 1:]
     port = int(args[0])
     selector = (lambda lst: lst[0]) if args[1] == 'first' else choice
@@ -220,15 +220,23 @@ if __name__ == "__main__":
 
     def result(solved, start):
         timetaken_ms = int((time.perf_counter_ns() - start) // 1e6)
+        gametype = (
+            f"{['1st', 'Rnd'][selector == choice]}"
+            f"{['Full', 'Bord'][screencap == 'board']}"
+            f"{['Unko', 'Refr'][refresh]}"
+        )
         result = 'solved' if solved else 'exploded'
         clicks = robot.total_clicks
         distance = robot.total_distance
         bandwidth = robot.total_bandwidth
         guesses = sum((1 for c in actions if c == 0))
         knowns = "|".join((str(c) for c in actions if c != 0))
-        # result timetaken clicks guesses matchTemplate bandwidth
-        p(f"| {result:8s} | {timetaken_ms:7d} | {clicks:6d} | {guesses:7d} | "
-            f"{counter[0]:15d} | {bandwidth:9d} |")
+        # type result timetaken clicks guesses matchTemplate bandwidth
+        p(
+            f"| {gametype:11s} | {result:8s} | {timetaken_ms:7d} |"
+            f" {clicks:6d} | {guesses:7d} |"
+            f" {counter[0]:10d} | {bandwidth:9d} |"
+        )
 
     try:
         play(
