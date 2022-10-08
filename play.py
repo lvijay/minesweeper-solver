@@ -140,13 +140,10 @@ class RobotMinesweeper(Minesweeper):
         }[cell]
 
 
-def play(robot, selector, actions):
-    finder = FindImage()
-    board = finder.get_new_board(robot.screencap())
-    rm = RobotMinesweeper(robot, finder, board)
+def play(robot, selector, actions, refresh):
     solver = MineSolver(rm)
     while True:
-        unmines = solver.update_board_state()
+        unmines = solver.update_board_state(fetch_full_board=refresh)
         if len(unmines) == 0:
             unknowns = list(solver.unknowns())
             if len(unknowns) == 0:
@@ -166,10 +163,14 @@ if __name__ == "__main__":
     import sys
     from random import choice
 
-    default_args = '8888 first'.split()
+    # Parse CLI args
+    default_args = '8888 first fullscreen 100 True'.split()
     args = sys.argv[1:] + default_args[len(sys.argv) - 1:]
     port = int(args[0])
     selector = (lambda lst: lst[0]) if args[1] == 'first' else choice
+    screencap = 'fullscreen' if args[2] == 'fullscreen' else 'board'
+    maxmoves = int(args[3])
+    refresh = args[4] == 'True'
 
     robot = Robot(port)
     p = print
@@ -178,18 +179,23 @@ if __name__ == "__main__":
     start_time_ns = time.time_ns()
 
     def result(solved, start):
-        timetaken_ms = int((time.time_ns() - start) // 1e6)
+        timetaken_ms = int((time.perf_counter_ns() - start) // 1e6)
         result = 'solved' if solved else 'exploded'
         clicks = robot.total_clicks
         distance = robot.total_distance
+        bandwidth = robot.total_bandwidth
         guesses = sum((1 for c in actions if c == 0))
         knowns = "|".join((str(c) for c in actions if c != 0))
         p(f"Game {result} {timetaken_ms}ms {clicks} {distance}px {guesses} {knowns}")
 
     try:
-        play(robot, selector, actions)
+        play(
+            robot=robot,
+            selector=selector,
+            actions=actions,
+            refresh=refresh,
+        )
     except ValueError as e:
-        end = time.time()
         if "Exploded" in e.args[0]:
             result(solved=False, start=start_time_ns)
         elif "solved" in e.args[0]:

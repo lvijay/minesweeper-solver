@@ -202,7 +202,7 @@ class Minesweeper:
         mines = [1 for ij in self.neighbor_xys(xy) if self.__mines[ij]]
         return sum(mines)
 
-    def get_state(self) -> List[Tuple[Point, int]]:
+    def get_state(self, points: List[Point] = None) -> List[Tuple[Point, int]]:
         return [
             ((i, j), self[i, j])
             for i in range(self.m) for j in range(self.n)
@@ -228,9 +228,13 @@ class MineSolver:
     def add_known(self, xy: Point, val: int) -> None:
         self.known[xy] = val
 
-    def update_board_state(self):
-        """Get current board state from the minesweeper board."""
-        bstate = self.minesweeper.get_state()
+    def update_board_state(self, fetch_full_board):
+        """Get current board state from the minesweeper board.  Set
+        fetch_full_board=True to refresh the entire board state.
+        """
+        bstate = self.minesweeper.get_state(
+            list(self.unknowns()) if not fetch_full_board else None
+        )
         for pxy, mc in bstate:
             self.add_known(pxy, mc)
 
