@@ -73,12 +73,23 @@ class FindImage:
              ("8", Cell.C8), ("UNOPENED", Cell.UNOPENED), ("FLAG", Cell.FLAG),
              ("EXPLODED", Cell.MINE)
              ))
+        cell_images = [
+            (n, i)
+            for n, i in images.items()
+            if n == "UNOPENED"
+            or n in "12345678"  # "0" excluded
+        ]
+        end_images = [
+            (n, i)
+            for n, i in images.items()
+            if "EXPLODED" in n
+            or "FINISHED" in n
+        ]
 
-        self.__images: Dict[str, Image] = images
+        self.__all_images: Dict[str, Image] = images
+        self.__end_images: Dict[str, Image] = end_images
+        self.__cell_images: Dict[str, Image] = cell_images
         self.__image_cells: Dict[str, Cell] = image_cells
-
-    def __getitem__(self, name: str) -> Image:
-        return self.__images[name]
 
     def get_matches(
             self,
@@ -95,7 +106,7 @@ class FindImage:
         return xs, ys
 
     def get_unopened_corner(self, image, corner) -> Pair[np.ndarray]:
-        template = self[f"CORNER.{corner}"]
+        template = self.__all_images[f"CORNER.{corner}"]
         return self.get_matches(
             image,
             template,
@@ -104,23 +115,22 @@ class FindImage:
             cv2.TM_CCOEFF_NORMED
         )
 
-    def is_game_ended(self, image) -> bool:
+    def is_game_ended(self, image) -> str:
         "Returns True if the game is over; False otherwise."
-        finished = self["FINISHED"]
-        try:
-            # the new game alert is on
-            self.get_matches(
-                image,
-                finished,
-                "finished",
-                0.95,
-                cv2.TM_CCOEFF_NORMED
-            )
-            return True
-        except SubImageNotFoundError:
-            pass
+        for name, template in self.__end_images:
+            try:
+                self.get_matches(
+                    image,
+                    template,
+                    name,
+                    0.95,
+                    cv2.TM_CCOEFF_NORMED
+                )
+                return name
+            except SubImageNotFoundError:
+                pass
 
-        return False
+        return ""
 
     def get_new_board(self, image) -> Tuple[Tuple[int, int], Any]:
         ne_x, ne_y = self.get_unopened_corner(image, "NE")
@@ -134,12 +144,7 @@ class FindImage:
         return (nwx, nwy), Board((board_width, board_height), (width, hite))
 
     def identify_cell(self, cell: Image) -> Cell:
-        saved_cells = {
-            name: img
-            for name, img in self.__images.items()
-            if "CORNER" not in name
-            and "FINISHED" not in name
-        }
+        saved_cells = self.__cell_images
 
         def matches(cell, saved_cell, name, algo=cv2.TM_CCOEFF_NORMED):
             cw, ch = cell.shape[:2]
@@ -149,26 +154,27 @@ class FindImage:
                 xdf, ydf = (cw - tw) / 2, (ch - th) / 2
                 xleft, xright = ceil(xdf), floor(xdf)
                 yleft, yright = ceil(ydf), floor(ydf)
-                return self.get_matches(
+                self.get_matches(
                     cell[xleft:-xright, yleft:-yright],
                     saved_cell,
                     name,
                     0.99,
                     algo)
+                return name
             return self.get_matches(cell, saved_cell, name, 0.95, algo)
         match_vals = []
-        for name, img in saved_cells.items():
+        for name, img in saved_cells:
             try:
-                matches(cell, img, name)
-                match_vals.append(name)
+                match_vals.append(matches(cell, img, name))
             except SubImageNotFoundError:
                 pass
         else:
             if len(match_vals) == 0:  # special handling for value=0
-                name = "0"
+                template0 = self.__all_images["0"]
                 try:
-                    matches(cell, saved_cells[name], "0", cv2.TM_CCORR_NORMED)
-                    match_vals.append(name)
+                    match_vals.append(
+                        matches(cell, template0, "0", cv2.TM_CCORR_NORMED
+                    ))
                 except SubImageNotFoundError:
                     pass
         if len(match_vals) == 0:

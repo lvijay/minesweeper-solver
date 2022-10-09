@@ -77,6 +77,14 @@ class Robot:
         return requests.get(self.__url + "/" + path, params=params)
 
 
+class GameSolvedError(Exception):
+    pass
+
+
+class GameExplodedError(Exception):
+    pass
+
+
 class RobotMinesweeper(Minesweeper):
     def __init__(self, robot: Robot, finder: FindImage, board: Board, topleft):
         self.robot: Robot = robot
@@ -115,8 +123,10 @@ class RobotMinesweeper(Minesweeper):
             try:
                 cell: Cell = self.finder.identify_cell(cellimg)
             except SubImageNotFoundError as e:
-                if self.finder.is_game_ended(image):
-                    raise ValueError("game solved")
+                if (result := self.finder.is_game_ended(image)):
+                    if result == "FINISHED":
+                        raise GameSolvedError()
+                    raise GameExplodedError()
                 identifier = int(time.time())
                 cellimage = f"o_{identifier}_{i},{j}.png"
                 boardimage = f"o_{identifier}_board.png"
@@ -163,7 +173,7 @@ def play(robot, rm, selector, actions, limit, refresh):
         if len(unmines) == 0:
             unknowns = list(solver.unknowns())
             if len(unknowns) == 0:
-                raise ValueError("solved")
+                raise GameSolvedError()
             point = selector(unknowns)
             print(f"guessing... {point}")
             actions.append(0)
@@ -183,7 +193,7 @@ if __name__ == "__main__":
     from random import choice
 
     # Parse CLI args
-    default_args = '8888 first fullscreen 500 True'.split()
+    default_args = '8888 first fullscreen 300 True'.split()
     args = sys.argv[1:] + default_args[len(sys.argv) - 1:]
     port = int(args[0])
     selector = (lambda lst: lst[0]) if args[1] == 'first' else choice
@@ -218,14 +228,13 @@ if __name__ == "__main__":
             return image
         rm._screencap = _screencap
 
-    def result(solved, start):
+    def result(message: str, start: int):
         timetaken_ms = int((time.perf_counter_ns() - start) // 1e6)
         gametype = (
             f"{['1st','Rnd'][selector == choice]}"
             f"{['Full','Bord'][screencap == 'board']}"
             f"{['Unko', 'Refr'][refresh]}"
         )
-        result = 'solved' if solved else 'exploded'
         clicks = robot.total_clicks
         distance = robot.total_distance
         bandwidth = robot.total_bandwidth
@@ -233,7 +242,7 @@ if __name__ == "__main__":
         knowns = "|".join((str(c) for c in actions if c != 0))
         # type result timetaken clicks guesses matchTemplate bandwidth
         p(
-            f"| {gametype:11s} | {result:8s} | {timetaken_ms:7d} |"
+            f"| {gametype:11s} | {message:8s} | {timetaken_ms:7d} |"
             f" {clicks:6d} | {guesses:7d} |"
             f" {counter[0]:10d} | {bandwidth:9d} |"
         )
@@ -247,18 +256,20 @@ if __name__ == "__main__":
             limit=maxmoves,
             refresh=refresh,
         )
+    except GameSolvedError:
+        result(message="solved", start=start_time_ns)
+    except GameExplodedError:
+        result(message="exploded", start=start_time_ns)
     except ValueError as e:
-        if "Exploded" in e.args[0]:
-            result(solved=False, start=start_time_ns)
-        elif "solved" in e.args[0]:
-            result(solved=True, start=start_time_ns)
-        elif "cell identification error" in e.args[0]:
+        if "cell identification error" in e.args[0]:
             p(f"Could not identify cell {e}")
+            result(message="identify", start=start_time_ns)
         else:
+            result(message="unknown", start=start_time_ns)
             p(f"unknown error {e}")
         sys.exit(0)
     except SubImageNotFoundError:
-        result(solved=True, start=start_time_ns)
+        result(message="UNKNOWN", start=start_time_ns)
         sys.exit(0)
     except requests.exceptions.ConnectionError:
         p("Robot server failure")
