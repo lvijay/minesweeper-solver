@@ -64,7 +64,7 @@ class FindImage:
             ("CORNER.SE", "find_n_se.png"), ("CORNER.SW", "find_n_sw.png")
         ]
         images: Dict[str, Image] = {
-            name: image_read(filename)
+            name: image_read(f"games/macnative-ms/{filename}")
             for name, filename in image_names_files
         }
         image_cells = dict(
