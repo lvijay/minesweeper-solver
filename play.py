@@ -183,7 +183,7 @@ if __name__ == "__main__":
     from random import choice
 
     # Parse CLI args
-    default_args = '8888 first fullscreen 300 True'.split()
+    default_args = '8888 first fullscreen 500 True'.split()
     args = sys.argv[1:] + default_args[len(sys.argv) - 1:]
     port = int(args[0])
     selector = (lambda lst: lst[0]) if args[1] == 'first' else choice
@@ -221,8 +221,8 @@ if __name__ == "__main__":
     def result(solved, start):
         timetaken_ms = int((time.perf_counter_ns() - start) // 1e6)
         gametype = (
-            f"{['1st', 'Rnd'][selector == choice]}"
-            f"{['Full', 'Bord'][screencap == 'board']}"
+            f"{['1st','Rnd'][selector == choice]}"
+            f"{['Full','Bord'][screencap == 'board']}"
             f"{['Unko', 'Refr'][refresh]}"
         )
         result = 'solved' if solved else 'exploded'
