@@ -49,24 +49,27 @@ class Cell(Enum):
 
 
 class FindImage:
-    def __init__(self):
-        image_names_files = [
-            ("0", "find_n_0.png"), ("1", "find_n_1.png"),
-            ("2", "find_n_2.png"), ("3", "find_n_3.png"),
-            ("4", "find_n_4.png"), ("5", "find_n_5.png"),
-            ("6", "find_n_6.png"), ("7", "find_n_7.png"),
-            ("8", "find_n_8.png"),
-            ("EXPLODED", "find_n_mine.png"),
-            ("FINISHED", "find_n_finished.png"),
-            ("FLAG", "find_n_flag.png"),
-            ("UNOPENED", "find_n_uo.png"),
-            ("CORNER.NE", "find_n_ne.png"), ("CORNER.NW", "find_n_nw.png"),
-            ("CORNER.SE", "find_n_se.png"), ("CORNER.SW", "find_n_sw.png")
-        ]
-        images: Dict[str, Image] = {
-            name: image_read(f"games/macnative-ms/{filename}")
-            for name, filename in image_names_files
-        }
+    IMAGE_NAMES_FILES = [
+        ("0", "find_n_0.png"), ("1", "find_n_1.png"),
+        ("2", "find_n_2.png"), ("3", "find_n_3.png"),
+        ("4", "find_n_4.png"), ("5", "find_n_5.png"),
+        ("6", "find_n_6.png"), ("7", "find_n_7.png"),
+        ("8", "find_n_8.png"),
+        ("EXPLODED", "find_n_mine.png"),
+        ("FINISHED", "find_n_finished.png"),
+        ("FLAG", "find_n_flag.png"),
+        ("UNOPENED", "find_n_uo.png"),
+        ("CORNER.NE", "find_n_ne.png"), ("CORNER.NW", "find_n_nw.png"),
+        ("CORNER.SE", "find_n_se.png"), ("CORNER.SW", "find_n_sw.png")
+    ]
+    def __init__(
+            self,
+            images: Dict[str, Image],
+            height: int, width: int,
+            extra_x: int, extra_y: int,
+    ):
+        self.height, self.width = height, width
+        self.xtra_x, self.xtra_y = extra_x, extra_y
         image_cells = dict(
             (("0", Cell.C0), ("1", Cell.C1), ("2", Cell.C2), ("3", Cell.C3),
              ("4", Cell.C4), ("5", Cell.C5), ("6", Cell.C6), ("7", Cell.C7),
@@ -137,11 +140,16 @@ class FindImage:
         nw_x, nw_y = self.get_unopened_corner(image, "NW")
         se_x, se_y = self.get_unopened_corner(image, "SE")
         sw_x, sw_y = self.get_unopened_corner(image, "SW")
-        width, hite = 30, 30  # FIXME hardcoding
-        nwx, nwy = int(nw_x[0] + 11), int(nw_y[0] + 11)  # FIXME hardcoding
-        board_width = int(ne_x[0] - nwx + width)
-        board_height = int(se_y[0] - nwy + hite)
-        return (nwx, nwy), Board((board_width, board_height), (width, hite))
+        nwx, nwy = int(nw_x[0] + self.xtra_x), int(nw_y[0] + self.xtra_y)
+        board_width = int(ne_x[0] - nwx + self.width)
+        board_height = int(se_y[0] - nwy + self.height)
+        return (
+            (nwx, nwy),
+            Board(
+                (board_width, board_height),
+                (self.width, self.height)
+            )
+        )
 
     def identify_cell(self, cell: Image) -> Cell:
         saved_cells = self.__cell_images
@@ -183,6 +191,30 @@ class FindImage:
             raise TooManyMatchesFoundError()
         name = match_vals[0]
         return self.__image_cells[name]
+
+
+class FindImageMacnative(FindImage):
+    def __init__(self):
+        super().__init__(
+            images={
+                name: image_read(f"games/macnative-ms/{filename}")
+                for name, filename in FindImage.IMAGE_NAMES_FILES
+            },
+            height=30, width=30,
+            extra_x=11, extra_y=11,
+        )
+
+
+class FindImageMinesweeperOnline(FindImage):
+    def __init__(self):
+        super().__init__(
+            images={
+                name: image_read(f"games/minesweeper.online/{filename}")
+                for name, filename in FindImage.IMAGE_NAMES_FILES
+            },
+            height=24, width=24,
+            extra_x=4, extra_y=4,
+        )
 
 
 class SubImageNotFoundError(Exception):

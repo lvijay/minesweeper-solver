@@ -16,6 +16,8 @@ from find_minesweeper_grid import (
     Board,
     Cell,
     FindImage,
+    FindImageMacnative,
+    FindImageMinesweeperOnline,
     Image,
     SubImageNotFoundError,
 )
@@ -208,7 +210,7 @@ if __name__ == "__main__":
     start_time_ns = time.perf_counter_ns()
 
     # count number of times we call finder.get_matches
-    finder = FindImage()
+    finder = FindImageMacnativeMinesweeper()
     counter = [0]
     def count_it(fn):
         """Counts number of times a function is called."""
