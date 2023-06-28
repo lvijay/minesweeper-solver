@@ -150,9 +150,16 @@ public class MinesweeperPlayer {
     }
 
     public static void main(String[] args) throws Exception {
+        var argPort = args.length >= 1 ? args[0] : "8888";
+        var argDelay = args.length >= 2 ? args[1] : null;
         var robot = new Robot();
         var serverProvider = HttpServerProvider.provider();
-        int port = 8888;
+        int port = Integer.parseInt(argPort);
+
+        System.out.printf("port=%s delay=%s%n", argPort, argDelay);
+        if (argDelay != null) {
+            robot.setAutoDelay(Integer.parseInt(argDelay));
+        }
         var server = serverProvider.createHttpServer(
                 new InetSocketAddress("localhost", port), 10);
 
