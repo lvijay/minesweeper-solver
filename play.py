@@ -195,13 +195,16 @@ if __name__ == "__main__":
     from random import choice
 
     # Parse CLI args
-    default_args = '8888 first fullscreen 300 True'.split()
+    default_args = '8888 first fullscreen 300 True native'.split()
     args = sys.argv[1:] + default_args[len(sys.argv) - 1:]
     port = int(args[0])
     selector = (lambda lst: lst[0]) if args[1] == 'first' else choice
     screencap = 'fullscreen' if args[2] == 'fullscreen' else 'board'
     maxmoves = int(args[3])
-    refresh = args[4] == 'True'
+    refresh = args[4].lower() == 'true'
+    finder_cls = FindImageMinesweeperOnline
+    if args[5] == 'native':
+        finder_cls = FindImageMacnative
 
     robot = Robot(port)
     p = print
@@ -210,7 +213,7 @@ if __name__ == "__main__":
     start_time_ns = time.perf_counter_ns()
 
     # count number of times we call finder.get_matches
-    finder = FindImageMacnativeMinesweeper()
+    finder = finder_cls()
     counter = [0]
     def count_it(fn):
         """Counts number of times a function is called."""
@@ -241,12 +244,11 @@ if __name__ == "__main__":
         distance = robot.total_distance
         bandwidth = robot.total_bandwidth
         guesses = sum((1 for c in actions if c == 0))
-        knowns = "|".join((str(c) for c in actions if c != 0))
         # type result timetaken clicks guesses matchTemplate bandwidth
         p(
             f"| {gametype:11s} | {message:8s} | {timetaken_ms:7d} |"
             f" {clicks:6d} | {guesses:7d} |"
-            f" {counter[0]:10d} | {bandwidth:9d} |"
+            f" {counter[0]:10d} | {bandwidth:9d} | {distance:7d} |"
         )
 
     try:
