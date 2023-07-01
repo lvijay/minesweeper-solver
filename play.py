@@ -195,7 +195,7 @@ if __name__ == "__main__":
     from random import choice
 
     # Parse CLI args
-    default_args = '8888 first fullscreen 300 True native'.split()
+    default_args = '8888 first fullscreen 300 True online'.split()
     args = sys.argv[1:] + default_args[len(sys.argv) - 1:]
     port = int(args[0])
     selector = (lambda lst: lst[0]) if args[1] == 'first' else choice
