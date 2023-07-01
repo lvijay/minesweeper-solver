@@ -59,3 +59,8 @@ If all goes well, you will see the program running and trying to solve
 the game.
 
 Feel free to raise an issue or email me if you run into any problems.
+
+If you want to see recordings of the solver in action, you can check
+them out on this YouTube playlist:
+
+[![Minesweeper Solver](https://img.youtube.com/vi/N8LbATeu9xQ/0.jpg)](https://www.youtube.com/watch?v=P7h_tEMDl9k&list=PL5gHWj0zicZoRjgtABICrOQ8LSGwTkZWz&index=1)
