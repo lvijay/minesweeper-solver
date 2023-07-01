@@ -60,7 +60,7 @@ end tell'
             ## move cursor away from the board
             curl 'localhost:8888/mousemove?x=864&y=183' -o /dev/null 2>/dev/null
             echo "game $i" >> ${DEBUGFILE}
-            ./play.py 8888 $MODE $SCREENCAP 500 $REFRESH_BOARD 2>> ${DEBUGFILE} | tee -a "${LOGFILE}"
+            ./play.py 8888 $MODE $SCREENCAP 500 $REFRESH_BOARD native 2>> ${DEBUGFILE} | tee -a "${LOGFILE}"
             tail -1 "${LOGFILE}" | awk '/solved/{system("say game solved")}/exploded/{system("say game exploded")}'
             osascript -e 'quit application "Minesweeper"'
             sleep 0.2
