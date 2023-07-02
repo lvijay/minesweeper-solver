@@ -47,7 +47,8 @@ OpenCV to identify the minesweeper board and for that it needs the
 program up and running.  So open up your browser, and head over to
 https://minesweeper.online/.  Select any of **Beginner**,
 **Intermediate**, **Expert**, or **Custom**.  (I recommend starting
-small and choosing **Beginner**.)
+small and choosing **Beginner**.)  See [this video](https://www.youtube.com/watch?v=fLbxAwe0FGg)
+for an illustration.
 
 Once you have the game open on one side, open up your terminal and run
 
